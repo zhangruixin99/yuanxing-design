@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>标准肿瘤登记平台原型</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">肿</div>
+          <div>
+            <strong>肿瘤登记平台</strong>
+            <span>省级直报与质控</span>
+          </div>
+        </div>
+        <div class="role-panel">
+          <label for="roleSelect">当前角色</label>
+          <select id="roleSelect"></select>
+          <p id="roleScope"></p>
+        </div>
+        <nav id="menu" class="menu"></nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1 id="pageTitle">工作台</h1>
+            <p id="pageSubtitle">按角色展示待办、质控、上报与共享概况</p>
+          </div>
+          <div class="top-actions">
+            <button class="icon-button" data-action="refresh" title="刷新">↻</button>
+            <button class="icon-button" data-action="notify" title="通知">!</button>
+            <button class="primary" data-action="quickCreate">新增报告卡</button>
+          </div>
+        </header>
+
+        <section id="content" class="content"></section>
+      </main>
+    </div>
+
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2 id="modalTitle">详情</h2>
+          <button class="icon-button" data-action="closeModal" title="关闭">×</button>
+        </div>
+        <div id="modalBody" class="modal-body"></div>
+        <div class="modal-foot">
+          <button data-action="closeModal">取消</button>
+          <button class="primary" data-action="confirmModal">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
