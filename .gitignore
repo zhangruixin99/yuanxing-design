@@ -1,2 +1,7 @@
 # Office temporary files
 .~*
+
+# Frontend dependencies and local caches
+node_modules/
+.npm-cache/
+dist/
