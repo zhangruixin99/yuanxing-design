@@ -15,6 +15,7 @@ import {
   Flex,
   Form,
   Input,
+  InputNumber,
   Layout,
   Menu,
   Modal,
@@ -49,7 +50,6 @@ import {
   ShareAltOutlined,
   TeamOutlined,
   UploadOutlined,
-  UserSwitchOutlined
 } from "@ant-design/icons";
 import { functionMenu } from "./menuData";
 import "./styles.css";
@@ -180,6 +180,27 @@ const shareRows = [
   { key: "3", no: "REQ-2026-009", org: "郑州大学课题组", range: "乳腺癌生存分析样本", status: "退回补充", date: "2026-05-25" }
 ];
 
+const voidRows = [
+  { key: "1", no: "HN-2026-000091", name: "郭兰英", region: "郑州市中原区", type: "原始卡", quality: "通过", status: "已作废", date: "2026-05-18" },
+  { key: "2", no: "HN-2026-000102", name: "孙志强", region: "开封市鼓楼区", type: "合并卡", quality: "警告", status: "已作废", date: "2026-05-22" }
+];
+
+const duplicateRows = [
+  { key: "1", group: "DUP-202606-001", cards: "HN-2026-000183 / HN-2025-009812", basis: "身份证号 + 姓名 + 出生日期", judge: "疑似重复", risk: "高" },
+  { key: "2", group: "DUP-202606-002", cards: "HN-2026-000185 / HN-2024-006381", basis: "姓名 + 联系电话 + 常住地址", judge: "疑似多原发", risk: "中" }
+];
+
+const baseRows = [
+  { key: "1", code: "410105", name: "金水区", year: "2025", sex: "女", ageGroup: "60-64", population: "54,218", status: "启用" },
+  { key: "2", code: "410103", name: "二七区", year: "2025", sex: "男", ageGroup: "65-69", population: "48,906", status: "启用" }
+];
+
+const auditRows = [
+  { key: "1", time: "2026-06-05 11:42", user: "张建国", action: "导出", content: "报告卡查询导出 128 条", result: "成功" },
+  { key: "2", time: "2026-06-05 11:08", user: "周敏", action: "退回", content: "HN-2026-000183 地址编码缺失", result: "成功" },
+  { key: "3", time: "2026-06-05 10:55", user: "王医生", action: "提交", content: "新增报告卡 HN-2026-000185", result: "成功" }
+];
+
 function statusTag(value) {
   const colorMap = {
     正式: "success",
@@ -203,9 +224,9 @@ function statusTag(value) {
 function App() {
   const [roleKey, setRoleKey] = useState("province");
   const [selectedKey, setSelectedKey] = useState("dashboard_01");
-  const [empty, setEmpty] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalContext, setModalContext] = useState(null);
   const [detail, setDetail] = useState(null);
   const [form] = Form.useForm();
 
@@ -237,13 +258,17 @@ function App() {
       const firstModule = functionMenu.find((item) => nextModules.includes(item.id));
       setSelectedKey(firstModule?.features[0]?.id || "dashboard_01");
     }
-    setEmpty(false);
     message.success(`已切换为${roles[value].label}`);
   }
 
-  function showDetail(action, row) {
-    setDetail({ action, row });
+  function showDetail(action, row, feature) {
+    setDetail({ action, row, feature });
     setDrawerOpen(true);
+  }
+
+  function openBusinessModal(action, feature) {
+    setModalContext({ action, feature });
+    setModalOpen(true);
   }
 
   function submitCard() {
@@ -252,9 +277,9 @@ function App() {
       .then(() => {
         setModalOpen(false);
         form.resetFields();
-        message.success("报告卡已暂存，校验通过后进入审核流程");
+        message.success(successMessage(modalContext));
       })
-      .catch(() => message.error("提交失败：请补全必填项并检查身份证号"));
+      .catch(() => message.error(errorMessage(modalContext)));
   }
 
   return (
@@ -290,7 +315,6 @@ function App() {
             items={menuItems}
             onClick={({ key }) => {
               setSelectedKey(key);
-              setEmpty(false);
             }}
             className="side-menu"
           />
@@ -319,99 +343,50 @@ function App() {
             </Space>
           </Header>
           <Content className="app-content">
-            <FeaturePage
-              feature={current}
-              role={roles[roleKey]}
-              empty={empty}
-              setEmpty={setEmpty}
-              openCreate={() => setModalOpen(true)}
-              showDetail={showDetail}
-            />
+            <div
+              onClick={(event) => {
+                const businessButton = event.target.closest("[data-business-action]");
+                if (businessButton) openBusinessModal(businessButton.dataset.businessAction, current);
+              }}
+            >
+              <FeaturePage
+                feature={current}
+                role={roles[roleKey]}
+                openBusinessModal={openBusinessModal}
+                showDetail={showDetail}
+              />
+            </div>
           </Content>
         </Layout>
       </Layout>
 
-      <Modal title="报告卡登记" open={modalOpen} onCancel={() => setModalOpen(false)} onOk={submitCard} okText="提交" cancelText="取消" width={820}>
-        <Alert
-          type="info"
-          showIcon
-          message="河南 V3.0 交互习惯"
-          description="表单按发病基本信息、肿瘤报告信息、随访报告信息分组；身份证可自动带出性别、出生日期，提交时执行必填、逻辑和重卡校验。"
-          style={{ marginBottom: 16 }}
-        />
-        <Form layout="vertical" form={form}>
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="name" label="姓名" rules={[{ required: true, message: "请输入患者姓名" }]}>
-                <Input placeholder="如：李桂英" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                name="id"
-                label="身份证号"
-                rules={[
-                  { required: true, message: "请输入身份证号" },
-                  { pattern: /^\d{17}[0-9Xx]$/, message: "请输入 18 位身份证号" }
-                ]}
-              >
-                <Input placeholder="41010519630215482X" />
-              </Form.Item>
-            </Col>
-            <Col span={4}>
-              <Form.Item name="sex" label="性别" rules={[{ required: true, message: "请选择性别" }]}>
-                <Select options={[{ value: "女" }, { value: "男" }]} />
-              </Form.Item>
-            </Col>
-            <Col span={4}>
-              <Form.Item name="age" label="年龄" rules={[{ required: true, message: "请输入年龄" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="region" label="户籍地址" rules={[{ required: true, message: "请选择到县区以下地址" }]}>
-                <Input placeholder="河南省郑州市金水区丰产路街道" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="diagnosis" label="诊断名称" rules={[{ required: true, message: "请输入诊断名称" }]}>
-                <Input placeholder="乳腺恶性肿瘤" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="icd10" label="ICD-10" rules={[{ required: true, message: "请输入 ICD-10 编码" }]}>
-                <Input placeholder="C50.9" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="icdo3" label="ICD-O-3" rules={[{ required: true, message: "请输入 ICD-O-3 编码" }]}>
-                <Input placeholder="8500/3" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="doctor" label="报告医师">
-                <Input placeholder="王医生" />
-              </Form.Item>
-            </Col>
-          </Row>
-        </Form>
+      <Modal
+        title={modalTitle(modalContext)}
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        onOk={submitCard}
+        okText={modalOkText(modalContext)}
+        cancelText="取消"
+        width={modalWidth(modalContext)}
+      >
+        <BusinessForm context={modalContext} form={form} />
       </Modal>
 
       <Drawer title={detail?.action || "详情"} open={drawerOpen} onClose={() => setDrawerOpen(false)} width={560}>
-        <Descriptions bordered column={1} size="small">
-          <Descriptions.Item label="业务对象">{detail?.row?.no || detail?.row?.batch || detail?.row?.name || "当前记录"}</Descriptions.Item>
-          <Descriptions.Item label="质控结果">身份证逻辑通过；ICD-O-3 编码需复核；地址精确到社区。</Descriptions.Item>
-          <Descriptions.Item label="审计留痕">确认后记录用户、角色、机构、时间、动作和前后状态。</Descriptions.Item>
-        </Descriptions>
+        <DrawerContent detail={detail} />
       </Drawer>
     </ConfigProvider>
   );
 }
 
-function FeaturePage({ feature, role, empty, setEmpty, openCreate, showDetail }) {
+function FeaturePage({ feature, role, openBusinessModal, showDetail }) {
+  if (feature?.id === "cards_01") {
+    return <ReportCardRegistration />;
+  }
+
   const moduleId = feature?.module?.id;
-  const data = getRows(moduleId, feature?.name);
-  const rows = empty ? [] : data.rows;
+  const data = getRows(feature);
+  const rows = data.rows;
   const columns = data.columns.map((column) => ({
     ...column,
     render: column.dataIndex === "status" || column.dataIndex === "quality" ? (value) => statusTag(value) : column.render
@@ -423,7 +398,7 @@ function FeaturePage({ feature, role, empty, setEmpty, openCreate, showDetail })
     render: (_, row) => (
       <Space>
         {data.actions.map((action) => (
-          <Button key={action} type="link" onClick={() => showDetail(action, row)}>
+          <Button key={action} type="link" onClick={() => showDetail(action, row, feature)}>
             {action}
           </Button>
         ))}
@@ -457,37 +432,28 @@ function FeaturePage({ feature, role, empty, setEmpty, openCreate, showDetail })
       </Row>
 
       <Card className="search-card">
-        <Flex justify="space-between" gap={16} wrap="wrap">
-          <Space size={12} wrap>
-            <Input prefix={<SearchOutlined />} placeholder={`搜索${feature?.name || "功能"}名称/编号`} className="search-input" />
-            <Select defaultValue="全部状态" className="filter-select" options={[{ value: "全部状态" }, { value: "待审核" }, { value: "正式" }, { value: "退回" }]} />
-            <Select defaultValue="全部区划" className="filter-select" options={[{ value: "全部区划" }, { value: "郑州市" }, { value: "洛阳市" }, { value: "南昌市" }]} />
+        <Flex justify="space-between" align="center" gap={12} className="search-line">
+          <Space size={10} className="search-controls">
+            <Input prefix={<SearchOutlined />} placeholder={data.placeholder} className="search-input" />
+            {data.filters.map((filter) => (
+              <Select key={filter.key} defaultValue={filter.options[0].value} className="filter-select" options={filter.options} />
+            ))}
             <Button type="primary" icon={<SearchOutlined />} onClick={() => message.success("查询完成")}>
               搜索
             </Button>
-            <Button onClick={() => setEmpty(true)}>模拟空数据</Button>
           </Space>
-          <Space>
-            <Button onClick={() => setEmpty(false)}>恢复数据</Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              {primaryText(moduleId, feature?.name)}
+          <Space className="action-controls">
+            {data.toolbarActions.map((action) => (
+              <Button key={action} data-business-action={action}>
+                {action}
+              </Button>
+            ))}
+            <Button type="primary" icon={<PlusOutlined />} data-business-action={data.primary}>
+              {data.primary}
             </Button>
           </Space>
         </Flex>
       </Card>
-
-      <Row gutter={16} className="info-row">
-        <Col span={12}>
-          <Card title="功能描述">
-            <Text>{feature?.description}</Text>
-          </Card>
-        </Col>
-        <Col span={12}>
-          <Card title="验证规则 / 业务校验">
-            <Text>{feature?.validation}</Text>
-          </Card>
-        </Col>
-      </Row>
 
       <Card className="table-card">
         <Table
@@ -508,18 +474,384 @@ function FeaturePage({ feature, role, empty, setEmpty, openCreate, showDetail })
   );
 }
 
-function primaryText(moduleId, featureName = "") {
-  if (moduleId === "cards" || featureName.includes("报告卡")) return "新增报告卡";
-  if (moduleId === "exchange") return "上传文件";
-  if (moduleId === "sharing") return "新增申请";
-  if (moduleId === "config") return "新增配置";
-  return "新增";
+function ReportCardRegistration() {
+  const [form] = Form.useForm();
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [lastValues, setLastValues] = useState(null);
+  const contactStatus = Form.useWatch("contactStatus", form);
+  const primarySite = Form.useWatch("primarySite", form);
+
+  const subSiteOptions = {
+    lung: [
+      { value: "C34.1", label: "上叶，肺 C34.1" },
+      { value: "C34.3", label: "下叶，肺 C34.3" },
+      { value: "C34.9", label: "肺，NOS C34.9" }
+    ],
+    breast: [
+      { value: "C50.4", label: "乳房外上象限 C50.4" },
+      { value: "C50.9", label: "乳房，NOS C50.9" }
+    ],
+    colon: [
+      { value: "C18.7", label: "乙状结肠 C18.7" },
+      { value: "C18.9", label: "结肠，NOS C18.9" }
+    ],
+    liver: [
+      { value: "C22.0", label: "肝细胞癌 C22.0" },
+      { value: "C22.9", label: "肝，NOS C22.9" }
+    ]
+  };
+
+  function parseIdCard(value) {
+    const id = value?.trim();
+    if (!/^\d{17}[0-9Xx]$/.test(id)) return;
+    const birth = `${id.slice(6, 10)}-${id.slice(10, 12)}-${id.slice(12, 14)}`;
+    const sex = Number(id.slice(16, 17)) % 2 === 1 ? "男" : "女";
+    const age = new Date().getFullYear() - Number(id.slice(6, 10));
+    form.setFieldsValue({ sex, birthday: birth, age });
+    message.success("已根据身份证自动带出性别、出生日期和年龄");
+  }
+
+  function updateCodes(changedValues, allValues) {
+    const hasTumorChange = ["primarySite", "subSite", "behavior", "grade", "pathology"].some((key) => Object.prototype.hasOwnProperty.call(changedValues, key));
+    if (!hasTumorChange) return;
+    const icd10 = allValues.subSite || "";
+    const morphology = allValues.pathology === "adenocarcinoma" ? "8140" : allValues.pathology === "squamous" ? "8070" : allValues.pathology === "ductal" ? "8500" : "8000";
+    const behavior = allValues.behavior || "3";
+    form.setFieldsValue({
+      icd10,
+      icdo3: icd10 ? `${morphology}/${behavior}` : undefined
+    });
+  }
+
+  function saveDraft() {
+    message.success("草稿已暂存，可在报告卡维护中继续编辑");
+  }
+
+  function submit() {
+    form
+      .validateFields()
+      .then((values) => {
+        setLastValues(values);
+        setDuplicateOpen(true);
+      })
+      .catch(() => message.error("提交失败：请补全必填项并检查逻辑校验"));
+  }
+
+  function confirmSubmit() {
+    setDuplicateOpen(false);
+    message.success(`报告卡已提交，登记编号 ${lastValues?.registerNo || "HN-2026-000186"}，进入审核流程`);
+  }
+
+  return (
+    <div className="report-card-page">
+      <Alert
+        type="info"
+        showIcon
+        className="compact-alert"
+        message="报告卡登记"
+        description="按河南 V3.0 录入习惯组织为发病基本信息、肿瘤报告信息、随访报告信息三部分；提交时执行必填、逻辑和重卡校验。"
+      />
+      <Form
+        form={form}
+        layout="vertical"
+        initialValues={{
+          registerNo: "HN-2026-000186",
+          reportOrg: "河南省人民医院",
+          reportDoctor: "王医生",
+          reportDate: "2026-06-05",
+          behavior: "3",
+          grade: "2"
+        }}
+        onValuesChange={(changed, allValues) => updateCodes(changed, allValues)}
+      >
+        <Card title="发病基本信息" className="form-section" size="small">
+          <Row gutter={12}>
+            <Col span={6}>
+              <Form.Item name="registerNo" label="登记编号">
+                <Input disabled />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="name" label="姓名" rules={[{ required: true, message: "请输入姓名" }]}>
+                <Input placeholder="张秀兰" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="idCard" label="身份证号" rules={[{ required: true, message: "请输入身份证号" }, { pattern: /^\d{17}[0-9Xx]$/, message: "身份证号必须为 18 位" }]}>
+                <Input placeholder="41010519630215482X" onBlur={(event) => parseIdCard(event.target.value)} />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item name="sex" label="性别" rules={[{ required: true, message: "请选择性别" }]}>
+                <Select options={[{ value: "男" }, { value: "女" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="birthday" label="出生日期" rules={[{ required: true, message: "请输入出生日期" }]}>
+                <Input placeholder="1963-02-15" />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item name="age" label="年龄" rules={[{ required: true, message: "请输入年龄" }]}>
+                <InputNumber min={0} max={130} className="full" />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="nation" label="民族">
+                <Select showSearch options={[{ value: "汉族" }, { value: "回族" }, { value: "蒙古族" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="occupation" label="职业">
+                <Select showSearch options={[{ value: "农民" }, { value: "工人" }, { value: "离退休人员" }, { value: "医务人员" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item name="phone" label="联系电话">
+                <Input placeholder="138****" />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="contactName" label="联系人">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="contactPhone" label="联系人电话">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={7}>
+              <Form.Item name="domicile" label="户籍地址" rules={[{ required: true, message: "请选择户籍地址" }]}>
+                <Select showSearch placeholder="请选择到社区/村委会" options={[{ value: "河南省/郑州市/金水区/丰产路街道/红旗社区" }, { value: "河南省/洛阳市/涧西区/天津路街道/厂前社区" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={7}>
+              <Form.Item name="residence" label="常住地址">
+                <Select showSearch placeholder="请选择到社区/村委会" options={[{ value: "同户籍地址" }, { value: "河南省/郑州市/金水区/文化路街道/农业路社区" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={10}>
+              <Form.Item name="detailAddress" label="详细地址">
+                <Input placeholder="门牌号、楼栋、单元等" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
+
+        <Card title="肿瘤报告信息" className="form-section" size="small">
+          <Row gutter={12}>
+            <Col span={6}>
+              <Form.Item name="primarySite" label="发病部位" rules={[{ required: true, message: "请选择发病部位" }]}>
+                <Select
+                  showSearch
+                  placeholder="选择后联动亚部位"
+                  options={[
+                    { value: "lung", label: "肺" },
+                    { value: "breast", label: "乳腺" },
+                    { value: "colon", label: "结肠" },
+                    { value: "liver", label: "肝" }
+                  ]}
+                  onChange={() => form.setFieldsValue({ subSite: undefined, icd10: undefined, icdo3: undefined })}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="subSite" label="亚部位" rules={[{ required: true, message: "请选择亚部位" }]}>
+                <Select showSearch disabled={!primarySite} options={subSiteOptions[primarySite] || []} />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="pathology" label="病理类型" rules={[{ required: true, message: "请选择病理类型" }]}>
+                <Select showSearch options={[{ value: "adenocarcinoma", label: "腺癌" }, { value: "squamous", label: "鳞状细胞癌" }, { value: "ductal", label: "导管癌" }, { value: "unknown", label: "恶性肿瘤，NOS" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={3}>
+              <Form.Item name="behavior" label="行为">
+                <Select options={[{ value: "2", label: "原位" }, { value: "3", label: "恶性" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={3}>
+              <Form.Item name="grade" label="分级">
+                <Select options={[{ value: "1" }, { value: "2" }, { value: "3" }, { value: "9" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="icd10" label="ICD-10" rules={[{ required: true, message: "系统未生成 ICD-10" }]}>
+                <Input placeholder="自动生成" />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="icdo3" label="ICD-O-3" rules={[{ required: true, message: "系统未生成 ICD-O-3" }]}>
+                <Input placeholder="自动生成" />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="diagnosisBasis" label="诊断依据" rules={[{ required: true, message: "请选择诊断依据" }]}>
+                <Select options={[{ value: "病理" }, { value: "临床" }, { value: "影像" }, { value: "死亡补发" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="diagnosisDate" label="确诊日期" rules={[{ required: true, message: "请输入确诊日期" }]}>
+                <Input placeholder="2026-06-01" />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item name="treatment" label="治疗信息">
+                <Select options={[{ value: "手术" }, { value: "放疗" }, { value: "化疗" }, { value: "未治疗" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="reportOrg" label="报告单位" rules={[{ required: true, message: "请输入报告单位" }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="reportDoctor" label="报告医师" rules={[{ required: true, message: "请输入报告医师" }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="reportDate" label="报告日期" rules={[{ required: true, message: "请输入报告日期" }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
+
+        <Card title="随访报告信息" className="form-section" size="small">
+          <Row gutter={12}>
+            <Col span={5}>
+              <Form.Item
+                name="lastContactDate"
+                label="最后接触日期"
+                dependencies={["contactStatus"]}
+                rules={[({ getFieldValue }) => ({ validator: (_, value) => (getFieldValue("contactStatus") && !value ? Promise.reject(new Error("状态已填写，日期必填")) : Promise.resolve()) })]}
+              >
+                <Input placeholder="2026-06-05" />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item
+                name="contactStatus"
+                label="最后接触状态"
+                dependencies={["lastContactDate"]}
+                rules={[({ getFieldValue }) => ({ validator: (_, value) => (getFieldValue("lastContactDate") && !value ? Promise.reject(new Error("日期已填写，状态必填")) : Promise.resolve()) })]}
+              >
+                <Select allowClear options={[{ value: "存活" }, { value: "死亡" }, { value: "失访" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="deathDate" label="死亡日期" rules={[{ required: contactStatus === "死亡", message: "死亡状态下必填" }]}>
+                <Input disabled={contactStatus !== "死亡"} placeholder="2026-06-05" />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="deathCause" label="死亡原因" rules={[{ required: contactStatus === "死亡", message: "死亡状态下必填" }]}>
+                <Select disabled={contactStatus !== "死亡"} options={[{ value: "肿瘤相关死亡" }, { value: "心脑血管疾病" }, { value: "其他原因" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item name="deathPlace" label="死亡地点" rules={[{ required: contactStatus === "死亡", message: "死亡状态下必填" }]}>
+                <Select disabled={contactStatus !== "死亡"} options={[{ value: "医院" }, { value: "家中" }, { value: "其他" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="survivalMonths" label="存活月数">
+                <InputNumber min={0} className="full" />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item name="followDoctor" label="随访医师">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
+
+        <div className="form-actions">
+          <Space>
+            <Button onClick={saveDraft}>暂存</Button>
+            <Button onClick={() => form.resetFields()}>重置</Button>
+            <Button type="primary" onClick={submit}>提交</Button>
+          </Space>
+        </div>
+      </Form>
+
+      <Modal title="疑似重卡提示" open={duplicateOpen} onCancel={() => setDuplicateOpen(false)} footer={<Space><Button onClick={() => setDuplicateOpen(false)}>返回修改</Button><Button type="primary" onClick={confirmSubmit}>继续提交</Button></Space>}>
+        <Alert type="warning" showIcon message="系统发现 1 条疑似重卡" description="HN-2025-009812，姓名张秀兰，身份证号与当前报告卡一致，发病部位同为乳腺。请确认是否继续提交为待审核状态。" />
+        <Descriptions bordered column={1} size="small" style={{ marginTop: 16 }}>
+          <Descriptions.Item label="当前记录">HN-2026-000186 / C50.9 乳腺恶性肿瘤</Descriptions.Item>
+          <Descriptions.Item label="疑似记录">HN-2025-009812 / C50.4 乳腺恶性肿瘤</Descriptions.Item>
+          <Descriptions.Item label="处理建议">如为同一次肿瘤报告，后续在重卡管理中对比合并；如疑似多原发，请由登记中心复核。</Descriptions.Item>
+        </Descriptions>
+      </Modal>
+    </div>
+  );
 }
 
-function getRows(moduleId, featureName = "") {
+function getRows(feature) {
+  const moduleId = feature?.module?.id;
+  const featureName = feature?.name || "";
+  const sourceName = feature?.sourceName || "";
+  const baseConfig = {
+    placeholder: `搜索${featureName}名称/编号`,
+    filters: commonFilters(),
+    toolbarActions: ["重置"],
+    primary: "新增",
+    rows: records,
+    actions: ["查看", "编辑", "导出"]
+  };
+  if (sourceName === "作废卡管理") {
+    return {
+      ...baseConfig,
+      placeholder: "搜索登记编号/姓名/身份证号",
+      primary: "导出 Excel",
+      toolbarActions: ["重置"],
+      rows: voidRows,
+      actions: ["详情", "还原", "删除"],
+      columns: [
+        { title: "登记编号", dataIndex: "no", width: 160 },
+        { title: "姓名", dataIndex: "name", width: 100 },
+        { title: "行政区划", dataIndex: "region", width: 160 },
+        { title: "报卡类型", dataIndex: "type", width: 120 },
+        { title: "校验状态", dataIndex: "quality", width: 110 },
+        { title: "作废状态", dataIndex: "status", width: 110 },
+        { title: "作废日期", dataIndex: "date", width: 130 }
+      ]
+    };
+  }
+  if (moduleId === "cards") {
+    const isQuery = sourceName === "报告卡查询";
+    return {
+      ...baseConfig,
+      placeholder: "搜索登记编号/姓名/身份证号",
+      filters: [
+        selectFilter("行政区划", ["全部区划", "郑州市", "洛阳市", "许昌市"]),
+        selectFilter("校验状态", ["全部状态", "通过", "警告", "错误"]),
+        selectFilter("报卡类型", ["全部类型", "原始卡", "合并卡", "多原发卡"]),
+        selectFilter("日期类型", ["报告日期", "诊断日期", "录入日期"]),
+        selectFilter("检索类型", ["登记编号", "姓名", "身份证号"])
+      ],
+      primary: sourceName === "报告卡登记" ? "提交报告卡" : isQuery ? "导出 Excel" : "添加",
+      toolbarActions: isQuery ? ["重置"] : ["重置"],
+      actions: isQuery ? ["详情", "克隆"] : sourceName === "报告卡维护" ? ["详情", "编辑", "删除"] : ["详情", "编辑", "提交审核"],
+      columns: reportColumns()
+    };
+  }
   if (moduleId === "exchange") {
     return {
+      ...baseConfig,
+      placeholder: "搜索上传批次/来源机构/文件名",
+      filters: [
+        selectFilter("行政区划", ["全部区划", "郑州市", "洛阳市", "南昌市"]),
+        selectFilter("重卡状态", ["全部", "未查重", "疑似重卡", "已处理"]),
+        selectFilter("上传类型", ["全部类型", "HIS", "CAUS", "XIE"]),
+        selectFilter("日期类型", ["上传日期", "入库日期"])
+      ],
       rows: exchangeRows,
+      primary: "添加文件",
+      toolbarActions: ["上传文件", "批量导入", "删除全部"],
       actions: ["查看日志", "错误导出", "重传"],
       columns: [
         { title: "批次号", dataIndex: "batch", width: 190 },
@@ -531,9 +863,69 @@ function getRows(moduleId, featureName = "") {
       ]
     };
   }
+  if (moduleId === "duplicate") {
+    return {
+      ...baseConfig,
+      placeholder: "搜索登记编号/姓名/身份证号",
+      filters: [selectFilter("行政区划", ["全部区划", "郑州市", "洛阳市"]), selectFilter("查重依据", ["全部依据", "身份证号", "姓名电话", "姓名性别出生日期地址"])],
+      rows: duplicateRows,
+      primary: sourceName.includes("参数") ? "添加参数" : "对比合并",
+      toolbarActions: sourceName.includes("关系查看") ? ["快速还原"] : ["快速合并"],
+      actions: sourceName.includes("关系查看") ? ["详情", "还原"] : ["对比合并", "快速合并", "标记多原发"],
+      columns: [
+        { title: "组号", dataIndex: "group", width: 150 },
+        { title: "关联记录", dataIndex: "cards", width: 260 },
+        { title: "查重依据", dataIndex: "basis", width: 220 },
+        { title: "判断结果", dataIndex: "judge", width: 130 },
+        { title: "风险等级", dataIndex: "risk", width: 100 }
+      ]
+    };
+  }
+  if (moduleId === "followup") {
+    return {
+      ...baseConfig,
+      placeholder: "搜索登记编号/姓名/身份证号",
+      filters: [
+        selectFilter("行政区划", ["全部区划", "郑州市", "洛阳市"]),
+        selectFilter("校验状态", ["全部状态", "通过", "警告", "错误"]),
+        selectFilter("报卡类型", ["全部类型", "原始卡", "合并卡"]),
+        selectFilter("日期类型", ["最后接触日期", "死亡日期"])
+      ],
+      rows: records,
+      primary: sourceName.includes("批量") ? "上传更新" : sourceName.includes("死亡") ? "死亡补录" : "添加随访",
+      toolbarActions: sourceName.includes("随访信息") ? ["批量随访"] : ["导出 Excel"],
+      actions: sourceName.includes("死亡") ? ["随访", "删除"] : ["随访", "修改最新", "删除最新"],
+      columns: reportColumns()
+    };
+  }
+  if (moduleId === "base") {
+    return {
+      ...baseConfig,
+      placeholder: "搜索编码/名称/年度",
+      filters: [selectFilter("行政区划", ["全部区划", "郑州市", "洛阳市"]), selectFilter("年度", ["2026", "2025", "2024"]), selectFilter("性别", ["全部性别", "男", "女"])],
+      rows: baseRows,
+      primary: "添加",
+      toolbarActions: sourceName.includes("发病人口") ? ["批量转换区划"] : ["重置"],
+      actions: ["查看", "编辑", "删除"],
+      columns: [
+        { title: "编码", dataIndex: "code", width: 120 },
+        { title: "名称", dataIndex: "name", width: 140 },
+        { title: "年度", dataIndex: "year", width: 90 },
+        { title: "性别", dataIndex: "sex", width: 90 },
+        { title: "年龄组", dataIndex: "ageGroup", width: 120 },
+        { title: "人口数", dataIndex: "population", width: 120 },
+        { title: "状态", dataIndex: "status", width: 100 }
+      ]
+    };
+  }
   if (moduleId === "sharing") {
     return {
+      ...baseConfig,
+      placeholder: "搜索申请编号/申请单位",
+      filters: [selectFilter("审批状态", ["全部状态", "待审批", "已交付", "退回补充"]), selectFilter("数据类型", ["全部类型", "报告卡", "随访", "人口"])],
       rows: shareRows,
+      primary: "新建申请",
+      toolbarActions: ["导出审批单"],
       actions: ["审批", "退回", "生成脱敏文件"],
       columns: [
         { title: "申请编号", dataIndex: "no", width: 150 },
@@ -541,6 +933,24 @@ function getRows(moduleId, featureName = "") {
         { title: "数据范围", dataIndex: "range", width: 260 },
         { title: "状态", dataIndex: "status", width: 120 },
         { title: "申请日期", dataIndex: "date", width: 130 }
+      ]
+    };
+  }
+  if (moduleId === "audit") {
+    return {
+      ...baseConfig,
+      placeholder: "搜索关键字/用户/业务编号",
+      filters: [selectFilter("日志类型", ["全部日志", "报卡日志", "随访日志", "空间地址日志", "系统操作日志"]), selectFilter("日期区间", ["今日", "近7天", "近30天"])],
+      rows: auditRows,
+      primary: "导出日志",
+      toolbarActions: [],
+      actions: ["查看详情"],
+      columns: [
+        { title: "时间", dataIndex: "time", width: 170 },
+        { title: "用户", dataIndex: "user", width: 120 },
+        { title: "动作", dataIndex: "action", width: 90 },
+        { title: "内容", dataIndex: "content", width: 280 },
+        { title: "结果", dataIndex: "result", width: 100 }
       ]
     };
   }
@@ -552,20 +962,284 @@ function getRows(moduleId, featureName = "") {
         ? ["随访", "死亡补录", "回退"]
         : ["查看", "编辑", "导出"];
   return {
+    ...baseConfig,
     rows: records,
     actions,
-    columns: [
-      { title: "登记编号", dataIndex: "no", width: 160 },
-      { title: "姓名", dataIndex: "name", width: 100 },
-      { title: "性别", dataIndex: "sex", width: 70 },
-      { title: "年龄", dataIndex: "age", width: 70 },
-      { title: "行政区划", dataIndex: "region", width: 160 },
-      { title: "报告机构", dataIndex: "org", width: 180 },
-      { title: "诊断", dataIndex: "diagnosis", width: 220 },
-      { title: "状态", dataIndex: "status", width: 130 },
-      { title: "校验", dataIndex: "quality", width: 100 }
-    ]
+    primary: moduleId === "annual" ? "生成年报" : moduleId === "config" ? "添加" : "导出 Excel",
+    toolbarActions: moduleId === "config" ? ["发布", "停用"] : ["重置"],
+    columns: reportColumns()
   };
+}
+
+function reportColumns() {
+  return [
+    { title: "登记编号", dataIndex: "no", width: 160 },
+    { title: "姓名", dataIndex: "name", width: 100 },
+    { title: "性别", dataIndex: "sex", width: 70 },
+    { title: "年龄", dataIndex: "age", width: 70 },
+    { title: "行政区划", dataIndex: "region", width: 160 },
+    { title: "报告机构", dataIndex: "org", width: 180 },
+    { title: "诊断", dataIndex: "diagnosis", width: 220 },
+    { title: "状态", dataIndex: "status", width: 130 },
+    { title: "校验", dataIndex: "quality", width: 100 }
+  ];
+}
+
+function commonFilters() {
+  return [selectFilter("状态", ["全部状态", "启用", "停用"]), selectFilter("日期类型", ["创建日期", "更新日期"])];
+}
+
+function selectFilter(key, options) {
+  return { key, options: options.map((value) => ({ value, label: value })) };
+}
+
+function modalTitle(context) {
+  if (!context) return "业务操作";
+  const name = context.feature?.name || "";
+  const action = context.action || "";
+  if (action.includes("上传") || action.includes("添加文件")) return `${name} - 文件上传`;
+  if (action.includes("批量导入")) return `${name} - 批量导入确认`;
+  if (action.includes("审核") || action === "审批") return `${name} - ${action}`;
+  if (action.includes("合并")) return `${name} - ${action}`;
+  if (action.includes("随访")) return `${name} - 随访记录`;
+  if (action.includes("死亡")) return `${name} - 死亡信息`;
+  if (action.includes("申请")) return `${name} - 申请登记`;
+  if (action.includes("导出")) return `${name} - 导出确认`;
+  return `${name} - ${action}`;
+}
+
+function modalOkText(context) {
+  const action = context?.action || "";
+  if (action.includes("上传") || action.includes("添加文件")) return "上传";
+  if (action.includes("导出")) return "导出";
+  if (action.includes("审核") || action === "审批") return "提交审核";
+  if (action.includes("合并")) return "确认合并";
+  if (action.includes("退回")) return "确认退回";
+  return "提交";
+}
+
+function modalWidth(context) {
+  const action = context?.action || "";
+  return action.includes("合并") ? 960 : 820;
+}
+
+function successMessage(context) {
+  const action = context?.action || "";
+  if (action.includes("上传") || action.includes("添加文件")) return "文件已进入临时库，系统正在执行格式和逻辑校验";
+  if (action.includes("导出")) return "导出任务已创建，完成后可在系统审计中查看下载记录";
+  if (action.includes("合并")) return "合并已提交，来源记录和目标记录关系已留痕";
+  if (action.includes("审核") || action === "审批") return "审核意见已提交，记录进入下一流程节点";
+  if (action.includes("随访")) return "随访记录已保存，最新接触状态已更新";
+  if (action.includes("死亡")) return "死亡信息已补录，待匹配发病记录并更新状态";
+  return "操作已提交，系统已记录审计日志";
+}
+
+function errorMessage(context) {
+  const action = context?.action || "";
+  if (action.includes("上传") || action.includes("添加文件")) return "上传失败：请选择文件并确认导入类型";
+  if (action.includes("审核") || action === "审批") return "提交失败：请填写处理意见";
+  return "提交失败：请补全必填项并检查格式";
+}
+
+function BusinessForm({ context, form }) {
+  const action = context?.action || "";
+  const moduleId = context?.feature?.module?.id || "";
+  if (action.includes("上传") || action.includes("添加文件")) {
+    return (
+      <Form layout="vertical" form={form}>
+        <Alert type="info" showIcon message="两步上传流程" description="参照河南 V3.0：先选择文件上传到临时库，再按校验结果批量导入或逐条处理。" style={{ marginBottom: 16 }} />
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="importType" label="导入类型" rules={[{ required: true, message: "请选择导入类型" }]}>
+              <Select options={[{ value: "HIS-肿瘤登记" }, { value: "CAUS-死因登记" }, { value: "XIE-信息协查" }]} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="region" label="行政区划" rules={[{ required: true, message: "请选择行政区划" }]}>
+              <Select options={[{ value: "河南省" }, { value: "郑州市" }, { value: "金水区" }]} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="file" label="上传文件" rules={[{ required: true, message: "请选择上传文件" }]}>
+              <Input placeholder="肿瘤登记批量上报.xlsx" />
+            </Form.Item>
+          </Col>
+        </Row>
+      </Form>
+    );
+  }
+  if (action.includes("审核") || action === "审批" || action.includes("退回") || action.includes("驳回")) {
+    return (
+      <Form layout="vertical" form={form}>
+        <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
+          <Descriptions.Item label="登记编号">HN-2026-000183</Descriptions.Item>
+          <Descriptions.Item label="校验状态">警告</Descriptions.Item>
+          <Descriptions.Item label="异常提示">户籍地址未精确到社区；ICD-O-3 编码需复核</Descriptions.Item>
+          <Descriptions.Item label="当前节点">县区复审</Descriptions.Item>
+        </Descriptions>
+        <Form.Item name="opinion" label="处理意见" rules={[{ required: true, message: "请填写处理意见" }]}>
+          <Input.TextArea rows={4} placeholder="请输入确认、退回或驳回原因" />
+        </Form.Item>
+      </Form>
+    );
+  }
+  if (action.includes("合并")) {
+    return (
+      <Form layout="vertical" form={form}>
+        <Alert type="warning" showIcon message="合并前请确认是否存在疑似多原发" description="发病部位和形态学编码存在差异时，建议先标记多原发，不直接快速合并。" style={{ marginBottom: 16 }} />
+        <Table
+          size="small"
+          pagination={false}
+          dataSource={[
+            { key: "1", field: "姓名", a: "张秀兰", b: "张秀兰", selected: "一致" },
+            { key: "2", field: "发病部位", a: "乳腺 C50.9", b: "乳腺 C50.4", selected: "按确诊日期早" },
+            { key: "3", field: "形态学编码", a: "8500/3", b: "8520/3", selected: "需人工确认" }
+          ]}
+          columns={[
+            { title: "字段", dataIndex: "field" },
+            { title: "记录 A", dataIndex: "a" },
+            { title: "记录 B", dataIndex: "b" },
+            { title: "合并策略", dataIndex: "selected" }
+          ]}
+        />
+      </Form>
+    );
+  }
+  if (action.includes("随访") || action.includes("死亡")) {
+    return (
+      <Form layout="vertical" form={form}>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="contactDate" label="最后接触日期" rules={[{ required: true, message: "请选择最后接触日期" }]}>
+              <Input placeholder="2026-06-05" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="contactStatus" label="最后接触状态" rules={[{ required: true, message: "请选择接触状态" }]}>
+              <Select options={[{ value: "存活" }, { value: "死亡" }, { value: "失访" }]} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="deathReason" label="根本死因">
+              <Input placeholder="最后接触状态为死亡时必填" />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item name="note" label="随访说明">
+              <Input.TextArea rows={3} placeholder="填写随访方式、联系人反馈或死亡信息来源" />
+            </Form.Item>
+          </Col>
+        </Row>
+      </Form>
+    );
+  }
+  if (moduleId === "sharing") {
+    return (
+      <Form layout="vertical" form={form}>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="org" label="申请单位" rules={[{ required: true, message: "请输入申请单位" }]}>
+              <Input placeholder="省肿瘤研究所" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="dataType" label="数据类型" rules={[{ required: true, message: "请选择数据类型" }]}>
+              <Select options={[{ value: "报告卡" }, { value: "随访" }, { value: "人口数据" }]} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="level" label="脱敏级别" rules={[{ required: true, message: "请选择脱敏级别" }]}>
+              <Select options={[{ value: "强脱敏" }, { value: "中脱敏" }, { value: "汇总数据" }]} />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item name="purpose" label="使用目的" rules={[{ required: true, message: "请输入使用目的" }]}>
+              <Input.TextArea rows={3} placeholder="说明课题、使用范围、有效期和联系人" />
+            </Form.Item>
+          </Col>
+        </Row>
+      </Form>
+    );
+  }
+  return <ReportCardForm form={form} />;
+}
+
+function ReportCardForm({ form }) {
+  return (
+    <Form layout="vertical" form={form}>
+      <Alert type="info" showIcon message="报告卡三段式录入" description="发病基本信息、肿瘤报告信息、随访报告信息保持河南 V3.0 的录入习惯。" style={{ marginBottom: 16 }} />
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name="name" label="姓名" rules={[{ required: true, message: "请输入患者姓名" }]}>
+            <Input placeholder="如：李桂英" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="id" label="身份证号" rules={[{ required: true, message: "请输入身份证号" }, { pattern: /^\d{17}[0-9Xx]$/, message: "请输入 18 位身份证号" }]}>
+            <Input placeholder="41010519630215482X" />
+          </Form.Item>
+        </Col>
+        <Col span={4}>
+          <Form.Item name="sex" label="性别" rules={[{ required: true, message: "请选择性别" }]}>
+            <Select options={[{ value: "女" }, { value: "男" }]} />
+          </Form.Item>
+        </Col>
+        <Col span={4}>
+          <Form.Item name="age" label="年龄" rules={[{ required: true, message: "请输入年龄" }]}>
+            <Input />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name="region" label="户籍地址" rules={[{ required: true, message: "请选择到县区以下地址" }]}>
+            <Input placeholder="河南省郑州市金水区丰产路街道" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name="diagnosis" label="诊断名称" rules={[{ required: true, message: "请输入诊断名称" }]}>
+            <Input placeholder="乳腺恶性肿瘤" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="icd10" label="ICD-10" rules={[{ required: true, message: "请输入 ICD-10 编码" }]}>
+            <Input placeholder="C50.9" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="icdo3" label="ICD-O-3" rules={[{ required: true, message: "请输入 ICD-O-3 编码" }]}>
+            <Input placeholder="8500/3" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="doctor" label="报告医师">
+            <Input placeholder="王医生" />
+          </Form.Item>
+        </Col>
+      </Row>
+    </Form>
+  );
+}
+
+function DrawerContent({ detail }) {
+  const action = detail?.action || "查看";
+  const row = detail?.row || {};
+  const featureName = detail?.feature?.name || "当前功能";
+  const text = action.includes("删除")
+    ? "删除为高风险动作。逻辑删除进入作废卡管理；物理删除需单独授权、二次确认和审计。"
+    : action.includes("重传")
+      ? "系统将按原批次、原映射和重传策略重新发送，失败原因会写回任务日志。"
+      : action.includes("错误导出")
+        ? "导出文件会包含原始字段和错误提示，便于线下修正后重新上传。"
+        : action.includes("克隆")
+          ? "克隆用于登记中心对辖区内非当前用户上报正式数据进行调整和合并，需保留来源关系。"
+          : "系统展示业务详情、校验结果、流程状态和操作留痕。";
+  return (
+    <Descriptions bordered column={1} size="small">
+      <Descriptions.Item label="功能">{featureName}</Descriptions.Item>
+      <Descriptions.Item label="业务对象">{row.no || row.batch || row.group || row.name || "当前记录"}</Descriptions.Item>
+      <Descriptions.Item label="操作说明">{text}</Descriptions.Item>
+      <Descriptions.Item label="审计留痕">记录用户、角色、机构、时间、动作、前后状态和处理意见。</Descriptions.Item>
+    </Descriptions>
+  );
 }
 
 createRoot(document.getElementById("root")).render(<App />);

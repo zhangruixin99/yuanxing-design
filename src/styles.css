@@ -92,24 +92,25 @@ body,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 80px;
-  padding: 0 36px;
+  height: 66px;
+  padding: 0 28px;
   background: #fff;
   box-shadow: 0 1px 0 rgba(16, 24, 40, 0.04);
 }
 
 .header-icon {
   color: #667085;
-  font-size: 26px;
+  font-size: 22px;
 }
 
 .user-avatar {
   background: #4c6fff;
   font-weight: 700;
+  flex: none;
 }
 
 .app-content {
-  padding: 28px 36px 44px;
+  padding: 22px 28px 36px;
 }
 
 .stat-row {
@@ -122,41 +123,44 @@ body,
 }
 
 .search-card {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   border: 0;
   border-radius: 12px;
   box-shadow: 0 8px 28px rgba(16, 24, 40, 0.06);
 }
 
 .search-input {
-  width: 360px;
-  height: 48px;
+  width: 310px;
+  height: 40px;
 }
 
 .filter-select {
-  width: 170px;
-  height: 48px;
+  width: 140px;
+  height: 40px;
 }
 
 .search-card .ant-btn {
-  height: 48px;
-  padding-inline: 22px;
+  height: 40px;
+  padding-inline: 16px;
   font-weight: 600;
 }
 
-.info-row {
-  margin-bottom: 18px;
+.search-line {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  min-width: 100%;
 }
 
-.info-row .ant-card {
-  min-height: 140px;
-  border: 0;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.04);
+.search-controls,
+.action-controls {
+  flex: none;
+  white-space: nowrap;
 }
 
-.info-row .ant-card-head {
-  border-bottom: 0;
+.search-controls .ant-space-item,
+.action-controls .ant-space-item {
+  flex: none;
 }
 
 .table-card {
@@ -180,17 +184,94 @@ body,
   padding-top: 18px;
 }
 
+.report-card-page {
+  max-width: 1500px;
+}
+
+.compact-alert {
+  margin-bottom: 14px;
+}
+
+.form-section {
+  margin-bottom: 14px;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.05);
+}
+
+.form-section .ant-card-head {
+  min-height: 44px;
+}
+
+.form-section .ant-card-head-title {
+  font-weight: 700;
+}
+
+.form-section .ant-card-body {
+  padding-bottom: 4px;
+}
+
+.form-section .ant-form-item {
+  margin-bottom: 14px;
+}
+
+.full {
+  width: 100%;
+}
+
+.form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 0 0;
+  background: linear-gradient(180deg, rgba(245, 247, 251, 0), #f5f7fb 36%);
+}
+
+.app-header .ant-space {
+  flex: none;
+}
+
+.app-header .ant-typography {
+  white-space: nowrap;
+}
+
 @media (max-width: 1100px) {
   .app-sider {
     position: static !important;
+    height: auto;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
   }
 
   .app-layout {
     display: block;
   }
 
-  .search-input,
-  .filter-select {
-    width: 100%;
+  .app-header {
+    height: auto;
+    min-height: 64px;
+    padding: 12px 16px;
+  }
+
+  .app-content {
+    padding: 16px;
+  }
+
+  .search-card .ant-card-body {
+    overflow-x: auto;
+  }
+
+  .search-line {
+    width: max-content;
+    min-width: 900px;
+  }
+
+  .search-controls,
+  .action-controls {
+    margin-bottom: 8px;
   }
 }
