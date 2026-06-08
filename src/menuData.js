@@ -60,14 +60,6 @@ export const functionMenu = [
         "validation": "导出受权限控制；敏感字段按角色脱敏；克隆仅限登记中心等授权角色；查询结果不得越权。"
       },
       {
-        "id": "cards_04",
-        "sourceName": "报告卡克隆",
-        "name": "报卡克隆",
-        "description": "登记中心用户基于辖区内非当前用户上报的正式数据创建调整/合并用新卡。",
-        "interactions": "选择原卡、克隆、编辑、提交、取消。",
-        "validation": "仅授权用户可克隆；原卡与克隆卡需保留来源关系；克隆卡提交后走校验、审核、查重流程。"
-      },
-      {
         "id": "cards_05",
         "sourceName": "作废卡管理",
         "name": "作废卡管理",

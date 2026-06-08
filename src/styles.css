@@ -341,6 +341,18 @@ body,
   margin-bottom: 12px;
 }
 
+.table-toolbar {
+  margin-bottom: 12px;
+}
+
+.clone-drawer .ant-drawer-body {
+  background: #f5f7fb;
+}
+
+.clone-drawer .report-card-page {
+  max-width: none;
+}
+
 .app-header .ant-space {
   flex: none;
 }

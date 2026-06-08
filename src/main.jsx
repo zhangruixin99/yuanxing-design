@@ -201,8 +201,44 @@ const shareRows = [
 ];
 
 const voidRows = [
-  { key: "1", no: "HN-2026-000091", name: "郭兰英", region: "郑州市中原区", type: "原始卡", quality: "通过", status: "已作废", date: "2026-05-18" },
-  { key: "2", no: "HN-2026-000102", name: "孙志强", region: "开封市鼓楼区", type: "合并卡", quality: "警告", status: "已作废", date: "2026-05-22" }
+  {
+    key: "1",
+    no: "HN-2026-000091",
+    name: "郭兰英",
+    sex: "女",
+    age: 71,
+    idCard: "410102195501126527",
+    region: "郑州市中原区",
+    org: "郑州市中心医院",
+    diagnosis: "C34.9 肺恶性肿瘤",
+    type: "原始卡",
+    quality: "通过",
+    originalStatus: "待县区审核",
+    status: "已作废",
+    reason: "医疗机构误报",
+    date: "2026-05-18",
+    deletedBy: "周敏",
+    deletedAt: "2026-05-18 15:21"
+  },
+  {
+    key: "2",
+    no: "HN-2026-000102",
+    name: "孙志强",
+    sex: "男",
+    age: 59,
+    idCard: "410204196705218419",
+    region: "开封市鼓楼区",
+    org: "开封市人民医院",
+    diagnosis: "C18.7 乙状结肠癌",
+    type: "合并卡",
+    quality: "警告",
+    originalStatus: "正式",
+    status: "已作废",
+    reason: "重卡合并后作废",
+    date: "2026-05-22",
+    deletedBy: "李文华",
+    deletedAt: "2026-05-22 10:08"
+  }
 ];
 
 const duplicateRows = [
@@ -227,6 +263,9 @@ function statusTag(value) {
     通过: "success",
     已入库: "success",
     已交付: "success",
+    已作废: "error",
+    已还原: "success",
+    待物理删除: "warning",
     待县区审核: "warning",
     待省级终审: "warning",
     待审批: "warning",
@@ -410,6 +449,9 @@ function FeaturePage({ feature, role, openBusinessModal, showDetail }) {
   if (feature?.id === "cards_03") {
     return <ReportCardQuery role={role} />;
   }
+  if (feature?.id === "cards_05") {
+    return <VoidCardManagement role={role} />;
+  }
 
   const moduleId = feature?.module?.id;
   const data = getRows(feature);
@@ -501,12 +543,56 @@ function FeaturePage({ feature, role, openBusinessModal, showDetail }) {
   );
 }
 
-function ReportCardRegistration() {
+function cloneInitialValues(sourceRow, role) {
+  if (!sourceRow) {
+    return {
+      registerNo: "HN-2026-000186",
+      reportOrg: "河南省人民医院",
+      reportDoctor: "王医生",
+      reportDate: "2026-06-05",
+      behavior: "3",
+      grade: "2"
+    };
+  }
+  const diagnosisCode = sourceRow.diagnosis?.slice(0, 5);
+  const primarySite = diagnosisCode?.startsWith("C50") ? "breast" : diagnosisCode?.startsWith("C18") ? "colon" : diagnosisCode?.startsWith("C22") ? "liver" : "lung";
+  return {
+    sourceRegisterNo: sourceRow.no,
+    cloneReason: "原卡信息调整",
+    registerNo: `HN-2026-CL${sourceRow.key.padStart(3, "0")}`,
+    name: sourceRow.name,
+    idCard: sourceRow.idCard,
+    sex: sourceRow.sex,
+    age: sourceRow.age,
+    nation: "汉族",
+    occupation: sourceRow.age >= 60 ? "离退休人员" : "工人",
+    domicile: sourceRow.region.includes("洛阳") ? "河南省/洛阳市/涧西区/天津路街道/厂前社区" : "河南省/郑州市/金水区/丰产路街道/红旗社区",
+    residence: "同户籍地址",
+    detailAddress: `${sourceRow.region} 登记地址待核实`,
+    primarySite,
+    subSite: diagnosisCode,
+    pathology: sourceRow.diagnosis?.includes("腺") ? "adenocarcinoma" : sourceRow.diagnosis?.includes("乳腺") ? "ductal" : "unknown",
+    behavior: "3",
+    grade: "2",
+    icd10: diagnosisCode,
+    icdo3: sourceRow.diagnosis?.includes("乳腺") ? "8500/3" : "8000/3",
+    diagnosisBasis: "病理",
+    diagnosisDate: sourceRow.diagnosisDate,
+    treatment: "手术",
+    reportOrg: role?.label === "医疗机构填报员" ? "河南省人民医院" : "河南省肿瘤登记中心",
+    reportDoctor: role?.name || "张建国",
+    reportDate: "2026-06-08"
+  };
+}
+
+function ReportCardRegistration({ mode = "create", sourceRow, role, onSubmitComplete }) {
   const [form] = Form.useForm();
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [lastValues, setLastValues] = useState(null);
   const contactStatus = Form.useWatch("contactStatus", form);
   const primarySite = Form.useWatch("primarySite", form);
+  const isClone = mode === "clone";
+  const initialValues = cloneInitialValues(sourceRow, role);
 
   const subSiteOptions = {
     lung: [
@@ -551,7 +637,7 @@ function ReportCardRegistration() {
   }
 
   function saveDraft() {
-    message.success("草稿已暂存，可在报告卡维护中继续编辑");
+    message.success(isClone ? "克隆草稿已暂存，来源关系已保留" : "草稿已暂存，可在报告卡维护中继续编辑");
   }
 
   function submit() {
@@ -566,7 +652,8 @@ function ReportCardRegistration() {
 
   function confirmSubmit() {
     setDuplicateOpen(false);
-    message.success(`报告卡已提交，登记编号 ${lastValues?.registerNo || "HN-2026-000186"}，进入审核流程`);
+    message.success(`${isClone ? "克隆报告卡" : "报告卡"}已提交，登记编号 ${lastValues?.registerNo || "HN-2026-000186"}，进入审核流程`);
+    onSubmitComplete?.();
   }
 
   return (
@@ -575,22 +662,41 @@ function ReportCardRegistration() {
         type="info"
         showIcon
         className="compact-alert"
-        message="报告卡登记"
-        description="按河南 V3.0 录入习惯组织为发病基本信息、肿瘤报告信息、随访报告信息三部分；提交时执行必填、逻辑和重卡校验。"
+        message={isClone ? "克隆报卡编辑" : "报告卡登记"}
+        description={isClone ? "基于原报告卡创建一张新的草稿卡，患者和诊断信息默认带入，报告单位、报告医师、报告日期按当前用户默认填充；提交后重新执行校验、审核和查重。" : "按河南 V3.0 录入习惯组织为发病基本信息、肿瘤报告信息、随访报告信息三部分；提交时执行必填、逻辑和重卡校验。"}
       />
       <Form
         form={form}
         layout="vertical"
-        initialValues={{
-          registerNo: "HN-2026-000186",
-          reportOrg: "河南省人民医院",
-          reportDoctor: "王医生",
-          reportDate: "2026-06-05",
-          behavior: "3",
-          grade: "2"
-        }}
+        initialValues={initialValues}
         onValuesChange={(changed, allValues) => updateCodes(changed, allValues)}
       >
+        {isClone && (
+          <Card title="克隆来源信息" className="form-section" size="small">
+            <Row gutter={12}>
+              <Col span={6}>
+                <Form.Item name="sourceRegisterNo" label="来源登记编号">
+                  <Input disabled />
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item label="来源患者">
+                  <Input disabled value={`${sourceRow?.name || ""} / ${sourceRow?.idCard || ""}`} />
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item label="来源诊断">
+                  <Input disabled value={sourceRow?.diagnosis} />
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item name="cloneReason" label="克隆原因" rules={[{ required: true, message: "请选择克隆原因" }]}>
+                  <Select options={[{ value: "原卡信息调整" }, { value: "疑似多原发补充" }, { value: "合并后重建新卡" }, { value: "上级登记中心修正" }]} />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Card>
+        )}
         <Card title="发病基本信息" className="form-section" size="small">
           <Row gutter={12}>
             <Col span={6}>
@@ -800,7 +906,7 @@ function ReportCardRegistration() {
           <Space>
             <Button onClick={saveDraft}>暂存</Button>
             <Button onClick={() => form.resetFields()}>重置</Button>
-            <Button type="primary" onClick={submit}>提交</Button>
+            <Button type="primary" onClick={submit}>{isClone ? "提交克隆卡" : "提交"}</Button>
           </Space>
         </div>
       </Form>
@@ -808,8 +914,9 @@ function ReportCardRegistration() {
       <Modal title="疑似重卡提示" open={duplicateOpen} onCancel={() => setDuplicateOpen(false)} footer={<Space><Button onClick={() => setDuplicateOpen(false)}>返回修改</Button><Button type="primary" onClick={confirmSubmit}>继续提交</Button></Space>}>
         <Alert type="warning" showIcon message="系统发现 1 条疑似重卡" description="HN-2025-009812，姓名张秀兰，身份证号与当前报告卡一致，发病部位同为乳腺。请确认是否继续提交为待审核状态。" />
         <Descriptions bordered column={1} size="small" style={{ marginTop: 16 }}>
-          <Descriptions.Item label="当前记录">HN-2026-000186 / C50.9 乳腺恶性肿瘤</Descriptions.Item>
-          <Descriptions.Item label="疑似记录">HN-2025-009812 / C50.4 乳腺恶性肿瘤</Descriptions.Item>
+          <Descriptions.Item label="当前记录">{lastValues?.registerNo || "HN-2026-000186"} / {lastValues?.icd10 || "C50.9"} 肿瘤报告卡</Descriptions.Item>
+          <Descriptions.Item label="疑似记录">{sourceRow?.no || "HN-2025-009812"} / {sourceRow?.diagnosis || "C50.4 乳腺恶性肿瘤"}</Descriptions.Item>
+          {isClone && <Descriptions.Item label="来源关系">当前新卡由 {sourceRow?.no} 克隆生成，提交后保留来源登记编号和克隆原因。</Descriptions.Item>}
           <Descriptions.Item label="处理建议">如为同一次肿瘤报告，后续在重卡管理中对比合并；如疑似多原发，请由登记中心复核。</Descriptions.Item>
         </Descriptions>
       </Modal>
@@ -1071,11 +1178,6 @@ function ReportCardQuery({ role }) {
     message.success("导出任务已创建，文件生成后可在系统审计中查看下载记录");
   }
 
-  function confirmClone() {
-    setCloneRow(null);
-    message.success(`已基于 ${cloneRow?.no} 创建克隆草稿，来源关系已保留`);
-  }
-
   const columns = [
     {
       title: "登记编号",
@@ -1165,7 +1267,7 @@ function ReportCardQuery({ role }) {
             type="info"
             showIcon
             message="当前角色仅可查询本机构数据"
-            description="医疗机构填报员不显示报卡克隆操作。登记中心或辖区授权用户可对正式数据执行克隆调整。"
+            description="医疗机构填报员不显示报卡克隆操作。登记中心或辖区授权用户可基于原卡创建新的克隆草稿。"
           />
         )}
         <Table columns={columns} dataSource={filteredRows} pagination={false} scroll={{ x: 1650 }} />
@@ -1206,19 +1308,229 @@ function ReportCardQuery({ role }) {
         </Descriptions>
       </Modal>
 
-      <Modal title="报卡克隆确认" open={Boolean(cloneRow)} onCancel={() => setCloneRow(null)} onOk={confirmClone} okText="确认克隆" cancelText="取消">
+      <Drawer
+        title="克隆报卡编辑"
+        open={Boolean(cloneRow)}
+        onClose={() => setCloneRow(null)}
+        width={1180}
+        className="clone-drawer"
+        destroyOnClose
+      >
+        {cloneRow && (
+          <ReportCardRegistration
+            key={cloneRow.no}
+            mode="clone"
+            sourceRow={cloneRow}
+            role={role}
+            onSubmitComplete={() => setCloneRow(null)}
+          />
+        )}
+      </Drawer>
+    </div>
+  );
+}
+
+function VoidCardManagement({ role }) {
+  const [form] = Form.useForm();
+  const [query, setQuery] = useState({});
+  const [selectedKeys, setSelectedKeys] = useState([]);
+  const [detailRow, setDetailRow] = useState(null);
+  const [restoreRow, setRestoreRow] = useState(null);
+  const [deleteRow, setDeleteRow] = useState(null);
+  const [batchRestoreOpen, setBatchRestoreOpen] = useState(false);
+  const canPhysicalDelete = role.label === "省级管理员";
+
+  const filteredRows = voidRows.filter((row) => {
+    if (query.region && query.region !== "全部区划" && !row.region.includes(query.region)) return false;
+    if (query.reason && query.reason !== "全部原因" && row.reason !== query.reason) return false;
+    if (query.status && query.status !== "全部状态" && row.status !== query.status) return false;
+    if (query.keyword) {
+      const field = query.searchType || "登记编号";
+      const value = query.keyword.trim();
+      if (field === "登记编号" && !row.no.includes(value)) return false;
+      if (field === "姓名" && !row.name.includes(value)) return false;
+      if (field === "身份证号" && !row.idCard.includes(value)) return false;
+    }
+    return true;
+  });
+
+  function doSearch() {
+    setQuery(form.getFieldsValue());
+    message.success("作废卡查询完成");
+  }
+
+  function resetSearch() {
+    form.resetFields();
+    setQuery({});
+  }
+
+  function confirmRestore() {
+    message.success(`${restoreRow?.no} 已还原至删除前状态：${restoreRow?.originalStatus}`);
+    setRestoreRow(null);
+  }
+
+  function confirmPhysicalDelete() {
+    message.success(`${deleteRow?.no} 已提交物理删除审批并记录审计日志`);
+    setDeleteRow(null);
+  }
+
+  function confirmBatchRestore() {
+    message.success(`已提交 ${selectedKeys.length} 张作废卡的批量还原任务`);
+    setBatchRestoreOpen(false);
+    setSelectedKeys([]);
+  }
+
+  const columns = [
+    {
+      title: "登记编号",
+      dataIndex: "no",
+      width: 160,
+      fixed: "left",
+      render: (value, row) => (
+        <Button type="link" className="link-cell" onClick={() => setDetailRow(row)}>
+          {value}
+        </Button>
+      )
+    },
+    { title: "姓名", dataIndex: "name", width: 90 },
+    { title: "性别", dataIndex: "sex", width: 70 },
+    { title: "年龄", dataIndex: "age", width: 70 },
+    { title: "身份证号", dataIndex: "idCard", width: 190 },
+    { title: "行政区划", dataIndex: "region", width: 150 },
+    { title: "报告单位", dataIndex: "org", width: 170 },
+    { title: "诊断信息", dataIndex: "diagnosis", width: 210 },
+    { title: "报卡类型", dataIndex: "type", width: 100 },
+    { title: "校验状态", dataIndex: "quality", width: 110, render: statusTag },
+    { title: "原审核状态", dataIndex: "originalStatus", width: 120, render: statusTag },
+    { title: "作废原因", dataIndex: "reason", width: 140 },
+    { title: "作废日期", dataIndex: "date", width: 115 },
+    { title: "作废人", dataIndex: "deletedBy", width: 90 },
+    {
+      title: "操作",
+      width: 190,
+      fixed: "right",
+      render: (_, row) => (
+        <Space size={4}>
+          <Button type="link" onClick={() => setDetailRow(row)}>
+            详情
+          </Button>
+          <Button type="link" onClick={() => setRestoreRow(row)}>
+            还原
+          </Button>
+          <Button type="link" danger disabled={!canPhysicalDelete} onClick={() => setDeleteRow(row)}>
+            物理删除
+          </Button>
+        </Space>
+      )
+    }
+  ];
+
+  return (
+    <div className="void-page">
+      <Card className="search-card maintenance-search">
+        <Form form={form} layout="inline" initialValues={{ region: "全部区划", reason: "全部原因", status: "全部状态", dateType: "作废日期", searchType: "登记编号" }}>
+          <Form.Item name="region">
+            <Select className="filter-select" options={[{ value: "全部区划" }, { value: "郑州市" }, { value: "开封市" }, { value: "洛阳市" }, { value: "许昌市" }]} />
+          </Form.Item>
+          <Form.Item name="reason">
+            <Select className="filter-select" options={[{ value: "全部原因" }, { value: "医疗机构误报" }, { value: "重卡合并后作废" }, { value: "患者信息错误" }]} />
+          </Form.Item>
+          <Form.Item name="status">
+            <Select className="filter-select" options={[{ value: "全部状态" }, { value: "已作废" }, { value: "待物理删除" }]} />
+          </Form.Item>
+          <Form.Item name="dateType">
+            <Select className="filter-select" options={[{ value: "作废日期" }, { value: "报告日期" }, { value: "诊断日期" }]} />
+          </Form.Item>
+          <Form.Item name="dateRange">
+            <Input className="date-range-input" placeholder="2026-05-01 至 2026-05-31" />
+          </Form.Item>
+          <Form.Item name="searchType">
+            <Select className="filter-select small" options={[{ value: "登记编号" }, { value: "姓名" }, { value: "身份证号" }]} />
+          </Form.Item>
+          <Form.Item name="keyword">
+            <Input prefix={<SearchOutlined />} className="keyword-input" placeholder="请输入检索内容" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" icon={<SearchOutlined />} onClick={doSearch}>
+                查询
+              </Button>
+              <Button onClick={resetSearch}>重置</Button>
+              <Button onClick={() => message.success(`已导出 ${filteredRows.length} 条作废卡记录，并写入审计日志`)}>
+                导出 Excel
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Card className="table-card">
         <Alert
+          className="table-alert"
           type="warning"
           showIcon
-          message="克隆会生成新的草稿报告卡"
-          description="该操作用于登记中心对辖区内非当前用户上报正式数据进行调整和合并，克隆后保留来源关系，仍需重新校验和审核。"
-          style={{ marginBottom: 16 }}
+          message="作废卡仅表示逻辑删除，仍可按权限还原"
+          description={canPhysicalDelete ? "物理删除为高风险动作，需二次确认并记录审计日志；已物理删除的数据不可恢复。" : "当前角色可查看和还原授权范围内作废卡，物理删除仅省级管理员可操作。"}
         />
-        <Descriptions bordered column={1} size="small">
-          <Descriptions.Item label="来源登记编号">{cloneRow?.no}</Descriptions.Item>
-          <Descriptions.Item label="患者姓名">{cloneRow?.name}</Descriptions.Item>
-          <Descriptions.Item label="诊断信息">{cloneRow?.diagnosis}</Descriptions.Item>
-        </Descriptions>
+        <Flex justify="space-between" align="center" className="table-toolbar">
+          <Text type="secondary">已选择 {selectedKeys.length} 条</Text>
+          <Space>
+            <Button disabled={!selectedKeys.length} onClick={() => setBatchRestoreOpen(true)}>
+              批量还原
+            </Button>
+            <Button disabled={!selectedKeys.length || !canPhysicalDelete} danger onClick={() => message.warning("批量物理删除需逐条复核，本原型暂按单条确认展示")}>
+              批量物理删除
+            </Button>
+          </Space>
+        </Flex>
+        <Table
+          rowSelection={{ selectedRowKeys: selectedKeys, onChange: setSelectedKeys }}
+          columns={columns}
+          dataSource={filteredRows}
+          pagination={false}
+          scroll={{ x: 1800 }}
+        />
+        <Flex justify="space-between" align="center" className="pagination-row">
+          <Text type="secondary">共 {filteredRows.length} 条记录，第 1 / 1 页</Text>
+          <Pagination current={1} total={filteredRows.length} pageSize={10} />
+        </Flex>
+      </Card>
+
+      <Drawer title="作废卡详细信息" open={Boolean(detailRow)} onClose={() => setDetailRow(null)} width={780}>
+        {detailRow && (
+          <>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="登记编号">{detailRow.no}</Descriptions.Item>
+              <Descriptions.Item label="报卡类型">{detailRow.type}</Descriptions.Item>
+              <Descriptions.Item label="姓名">{detailRow.name}</Descriptions.Item>
+              <Descriptions.Item label="身份证号">{detailRow.idCard}</Descriptions.Item>
+              <Descriptions.Item label="性别">{detailRow.sex}</Descriptions.Item>
+              <Descriptions.Item label="年龄">{detailRow.age}</Descriptions.Item>
+              <Descriptions.Item label="行政区划">{detailRow.region}</Descriptions.Item>
+              <Descriptions.Item label="报告单位">{detailRow.org}</Descriptions.Item>
+              <Descriptions.Item label="诊断信息" span={2}>{detailRow.diagnosis}</Descriptions.Item>
+              <Descriptions.Item label="原审核状态">{statusTag(detailRow.originalStatus)}</Descriptions.Item>
+              <Descriptions.Item label="作废状态">{statusTag(detailRow.status)}</Descriptions.Item>
+              <Descriptions.Item label="作废原因">{detailRow.reason}</Descriptions.Item>
+              <Descriptions.Item label="作废时间">{detailRow.deletedAt}</Descriptions.Item>
+              <Descriptions.Item label="作废人">{detailRow.deletedBy}</Descriptions.Item>
+              <Descriptions.Item label="校验状态">{statusTag(detailRow.quality)}</Descriptions.Item>
+            </Descriptions>
+            <Alert className="drawer-alert" type="info" showIcon message="还原规则" description="还原后报告卡回到删除前审核状态，并重新进入报卡维护列表；还原、物理删除和导出均写入系统操作日志。" />
+          </>
+        )}
+      </Drawer>
+
+      <Modal title="还原作废卡" open={Boolean(restoreRow)} onCancel={() => setRestoreRow(null)} onOk={confirmRestore} okText="确认还原" cancelText="取消">
+        <Alert type="info" showIcon message="确认将作废卡恢复为有效记录" description={`登记编号 ${restoreRow?.no || ""} 将恢复到删除前状态：${restoreRow?.originalStatus || ""}。还原后可在报告卡维护中继续处理。`} />
+      </Modal>
+
+      <Modal title="物理删除确认" open={Boolean(deleteRow)} onCancel={() => setDeleteRow(null)} onOk={confirmPhysicalDelete} okText="确认提交删除审批" cancelText="取消" okButtonProps={{ danger: true }}>
+        <Alert type="error" showIcon message="物理删除不可恢复" description={`登记编号 ${deleteRow?.no || ""} 将进入物理删除审批流程。正式系统应要求输入删除原因、复核人和二次口令，本原型先展示高风险确认。`} />
+      </Modal>
+
+      <Modal title="批量还原确认" open={batchRestoreOpen} onCancel={() => setBatchRestoreOpen(false)} onOk={confirmBatchRestore} okText="确认批量还原" cancelText="取消">
+        <Alert type="info" showIcon message={`确认还原 ${selectedKeys.length} 张作废卡`} description="批量还原会逐条校验数据权限和原状态，失败记录保留在作废卡列表并生成处理日志。" />
       </Modal>
     </div>
   );
