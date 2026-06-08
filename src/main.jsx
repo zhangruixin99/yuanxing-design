@@ -28,6 +28,7 @@ import {
   Tag,
   Timeline,
   Typography,
+  Upload,
   message,
   theme
 } from "antd";
@@ -314,6 +315,61 @@ const followupRows = [
   }
 ];
 
+const batchFollowupErrors = [
+  {
+    key: "1",
+    rowNo: 7,
+    no: "HN-2026-000185",
+    name: "赵海",
+    idCard: "411002198103094210",
+    contactDate: "2026-05-20",
+    contactStatus: "存活",
+    errorType: "日期逻辑错误",
+    level: "错误",
+    message: "最后接触日期早于确诊日期 2026-05-28",
+    suggestion: "核对随访日期后重新上传或逐条处理"
+  },
+  {
+    key: "2",
+    rowNo: 12,
+    no: "HN-2025-008432",
+    name: "陈国强",
+    idCard: "410103195802073016",
+    contactDate: "2026-05-30",
+    contactStatus: "死亡",
+    errorType: "死亡字段缺失",
+    level: "错误",
+    message: "接触状态为死亡时，死亡原因和死亡地点不能为空",
+    suggestion: "补齐死亡日期、死亡原因、死亡地点"
+  },
+  {
+    key: "3",
+    rowNo: 18,
+    no: "HN-2026-009999",
+    name: "刘建设",
+    idCard: "410105197611032711",
+    contactDate: "2026-06-07",
+    contactStatus: "存活",
+    errorType: "患者匹配失败",
+    level: "错误",
+    message: "登记编号不存在，身份证号未匹配到有效报告卡",
+    suggestion: "确认登记编号或先补录报告卡"
+  },
+  {
+    key: "4",
+    rowNo: 23,
+    no: "HN-2026-000183",
+    name: "张秀兰",
+    idCard: "41010519630215482X",
+    contactDate: "2026-06-06",
+    contactStatus: "存活",
+    errorType: "重复随访",
+    level: "警告",
+    message: "同一患者、同一最后接触日期已存在随访记录",
+    suggestion: "如确认覆盖，请逐条处理并填写说明"
+  }
+];
+
 const duplicateRows = [
   { key: "1", group: "DUP-202606-001", cards: "HN-2026-000183 / HN-2025-009812", basis: "身份证号 + 姓名 + 出生日期", judge: "疑似重复", risk: "高" },
   { key: "2", group: "DUP-202606-002", cards: "HN-2026-000185 / HN-2024-006381", basis: "姓名 + 联系电话 + 常住地址", judge: "疑似多原发", risk: "中" }
@@ -527,6 +583,9 @@ function FeaturePage({ feature, role, openBusinessModal, showDetail }) {
   }
   if (feature?.id === "followup_01") {
     return <FollowupInfoManagement role={role} />;
+  }
+  if (feature?.id === "followup_02") {
+    return <BatchFollowupManagement role={role} />;
   }
 
   const moduleId = feature?.module?.id;
@@ -1909,6 +1968,291 @@ function FollowupInfoManagement({ role }) {
           message="仅允许删除最新一条随访记录"
           description={`登记编号 ${deleteRow?.no || ""} 当前共有 ${deleteRow?.histories?.length || 0} 条随访记录。系统会校验至少保留一条有效随访记录，删除后患者最后接触状态回退到上一条记录。`}
         />
+      </Modal>
+    </div>
+  );
+}
+
+function BatchFollowupManagement({ role }) {
+  const [form] = Form.useForm();
+  const [query, setQuery] = useState({});
+  const [fileName, setFileName] = useState("随访批量更新_郑州市金水区_20260608.xlsx");
+  const [uploadChecked, setUploadChecked] = useState(true);
+  const [selectedKeys, setSelectedKeys] = useState([]);
+  const [detailRow, setDetailRow] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [handleRow, setHandleRow] = useState(null);
+
+  const filteredRows = batchFollowupErrors.filter((row) => {
+    if (query.level && query.level !== "全部级别" && row.level !== query.level) return false;
+    if (query.errorType && query.errorType !== "全部类型" && row.errorType !== query.errorType) return false;
+    if (query.keyword) {
+      const field = query.searchType || "登记编号";
+      const value = query.keyword.trim();
+      if (field === "登记编号" && !row.no.includes(value)) return false;
+      if (field === "姓名" && !row.name.includes(value)) return false;
+      if (field === "身份证号" && !row.idCard.includes(value)) return false;
+    }
+    return true;
+  });
+
+  const summary = {
+    total: 128,
+    ready: 106,
+    warning: 5,
+    error: 17,
+    duplicate: 3,
+    deathMissing: 4
+  };
+
+  function beforeUpload(file) {
+    setFileName(file.name);
+    setUploadChecked(false);
+    message.success("文件已选择，请点击上传校验");
+    return false;
+  }
+
+  function validateUpload() {
+    setUploadChecked(true);
+    message.success("文件校验完成：106 条可入库，17 条错误需处理");
+  }
+
+  function downloadTemplate() {
+    Modal.info({
+      title: "下载批量随访模板",
+      content: "模板版本：V2026.06。字段包含登记编号、姓名、身份证号、最后接触日期、接触状态、随访方式、死亡日期、死亡原因、死亡地点、随访说明。",
+      okText: "知道了"
+    });
+  }
+
+  function exportErrors() {
+    message.success(`已导出 ${filteredRows.length} 条校验异常明细`);
+  }
+
+  function confirmImport() {
+    setImportOpen(false);
+    message.success("批量入库任务已创建，错误记录未入库，可在错误明细中逐条处理");
+  }
+
+  function saveHandleRow() {
+    setHandleRow(null);
+    message.success("逐条处理结果已保存，系统将重新校验该行记录");
+  }
+
+  const columns = [
+    { title: "行号", dataIndex: "rowNo", width: 80, fixed: "left" },
+    {
+      title: "登记编号",
+      dataIndex: "no",
+      width: 160,
+      fixed: "left",
+      render: (value, row) => (
+        <Button type="link" className="link-cell" onClick={() => setDetailRow(row)}>
+          {value}
+        </Button>
+      )
+    },
+    { title: "姓名", dataIndex: "name", width: 90 },
+    { title: "身份证号", dataIndex: "idCard", width: 190 },
+    { title: "最后接触日期", dataIndex: "contactDate", width: 125 },
+    { title: "接触状态", dataIndex: "contactStatus", width: 100, render: statusTag },
+    { title: "错误类型", dataIndex: "errorType", width: 140 },
+    { title: "级别", dataIndex: "level", width: 90, render: statusTag },
+    { title: "错误说明", dataIndex: "message", width: 280 },
+    { title: "处理建议", dataIndex: "suggestion", width: 240 },
+    {
+      title: "操作",
+      width: 140,
+      fixed: "right",
+      render: (_, row) => (
+        <Space size={4}>
+          <Button type="link" onClick={() => setDetailRow(row)}>
+            详情
+          </Button>
+          <Button type="link" onClick={() => setHandleRow(row)}>
+            逐条处理
+          </Button>
+        </Space>
+      )
+    }
+  ];
+
+  return (
+    <div className="batch-followup-page">
+      <Row gutter={16} className="batch-upload-row">
+        <Col span={8}>
+          <Card title="模板下载" className="form-section" size="small">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="模板版本">V2026.06</Descriptions.Item>
+              <Descriptions.Item label="适用范围">随访信息批量新增和最新状态更新</Descriptions.Item>
+              <Descriptions.Item label="死亡字段">死亡状态需填写死亡日期、死亡原因、死亡地点</Descriptions.Item>
+            </Descriptions>
+            <Button type="primary" icon={<UploadOutlined />} onClick={downloadTemplate}>
+              下载模板
+            </Button>
+          </Card>
+        </Col>
+        <Col span={16}>
+          <Card title="上传校验" className="form-section" size="small">
+            <Form layout="vertical" initialValues={{ batchNo: "FUP-20260608-001", org: role.label === "医疗机构填报员" ? "河南省人民医院" : "郑州市疾控中心", method: "电话随访" }}>
+              <Row gutter={12}>
+                <Col span={6}>
+                  <Form.Item name="batchNo" label="上传批次号">
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="org" label="上传机构">
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={5}>
+                  <Form.Item name="method" label="默认随访方式">
+                    <Select options={[{ value: "电话随访" }, { value: "门诊随访" }, { value: "基层协查" }]} />
+                  </Form.Item>
+                </Col>
+                <Col span={7}>
+                  <Form.Item label="随访文件">
+                    <Upload beforeUpload={beforeUpload} maxCount={1} showUploadList={false} accept=".xlsx,.xls,.csv">
+                      <Button icon={<UploadOutlined />}>选择文件</Button>
+                    </Upload>
+                    <Text className="upload-file-name" type="secondary">{fileName}</Text>
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item label="导入说明">
+                    <Input.TextArea rows={2} placeholder="填写本批次来源、随访范围或特殊说明" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+            <Space>
+              <Button type="primary" icon={<UploadOutlined />} onClick={validateUpload}>
+                上传校验
+              </Button>
+              <Button onClick={() => message.info("已清空当前选择文件和校验结果")}>清空</Button>
+            </Space>
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={16} className="stat-row">
+        <Col span={4}><Card><Statistic title="总行数" value={summary.total} suffix="行" /></Card></Col>
+        <Col span={4}><Card><Statistic title="可入库" value={summary.ready} suffix="行" valueStyle={{ color: "#16a34a" }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="警告" value={summary.warning} suffix="行" valueStyle={{ color: "#2563eb" }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="错误" value={summary.error} suffix="行" valueStyle={{ color: "#dc2626" }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="重复行" value={summary.duplicate} suffix="行" /></Card></Col>
+        <Col span={4}><Card><Statistic title="死亡待补充" value={summary.deathMissing} suffix="行" /></Card></Col>
+      </Row>
+
+      <Card className="search-card maintenance-search">
+        <Form form={form} layout="inline" initialValues={{ level: "全部级别", errorType: "全部类型", searchType: "登记编号" }}>
+          <Form.Item name="level">
+            <Select className="filter-select" options={[{ value: "全部级别" }, { value: "错误" }, { value: "警告" }]} />
+          </Form.Item>
+          <Form.Item name="errorType">
+            <Select className="filter-select" options={[{ value: "全部类型" }, { value: "日期逻辑错误" }, { value: "死亡字段缺失" }, { value: "患者匹配失败" }, { value: "重复随访" }]} />
+          </Form.Item>
+          <Form.Item name="searchType">
+            <Select className="filter-select small" options={[{ value: "登记编号" }, { value: "姓名" }, { value: "身份证号" }]} />
+          </Form.Item>
+          <Form.Item name="keyword">
+            <Input prefix={<SearchOutlined />} className="keyword-input" placeholder="请输入检索内容" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" icon={<SearchOutlined />} onClick={() => { setQuery(form.getFieldsValue()); message.success("异常明细筛选完成"); }}>
+                查询
+              </Button>
+              <Button onClick={() => { form.resetFields(); setQuery({}); }}>重置</Button>
+              <Button onClick={exportErrors}>错误导出</Button>
+              <Button type="primary" disabled={!uploadChecked} onClick={() => setImportOpen(true)}>
+                批量入库
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Card className="table-card">
+        <Alert
+          className="table-alert"
+          type={uploadChecked ? "warning" : "info"}
+          showIcon
+          message={uploadChecked ? "存在错误记录，错误行不会入库" : "请先上传文件并执行校验"}
+          description="系统仅允许可入库记录批量入库；错误记录需修正模板后重传，或在错误明细中逐条处理。"
+        />
+        <Flex justify="space-between" align="center" className="table-toolbar">
+          <Text type="secondary">已选择 {selectedKeys.length} 条异常记录</Text>
+          <Space>
+            <Button disabled={!selectedKeys.length} onClick={() => message.success(`已导出 ${selectedKeys.length} 条选中异常`)}>
+              导出选中
+            </Button>
+            <Button disabled={!selectedKeys.length} onClick={() => message.info("选中记录已标记为逐条处理队列")}>
+              加入逐条处理
+            </Button>
+          </Space>
+        </Flex>
+        <Table
+          rowSelection={{ selectedRowKeys: selectedKeys, onChange: setSelectedKeys }}
+          columns={columns}
+          dataSource={filteredRows}
+          pagination={false}
+          scroll={{ x: 1750 }}
+        />
+        <Flex justify="space-between" align="center" className="pagination-row">
+          <Text type="secondary">共 {filteredRows.length} 条异常记录，第 1 / 1 页</Text>
+          <Pagination current={1} total={filteredRows.length} pageSize={10} />
+        </Flex>
+      </Card>
+
+      <Drawer title="校验异常详情" open={Boolean(detailRow)} onClose={() => setDetailRow(null)} width={720}>
+        {detailRow && (
+          <>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="行号">{detailRow.rowNo}</Descriptions.Item>
+              <Descriptions.Item label="级别">{statusTag(detailRow.level)}</Descriptions.Item>
+              <Descriptions.Item label="登记编号">{detailRow.no}</Descriptions.Item>
+              <Descriptions.Item label="姓名">{detailRow.name}</Descriptions.Item>
+              <Descriptions.Item label="身份证号" span={2}>{detailRow.idCard}</Descriptions.Item>
+              <Descriptions.Item label="最后接触日期">{detailRow.contactDate}</Descriptions.Item>
+              <Descriptions.Item label="接触状态">{statusTag(detailRow.contactStatus)}</Descriptions.Item>
+              <Descriptions.Item label="错误类型">{detailRow.errorType}</Descriptions.Item>
+              <Descriptions.Item label="处理建议">{detailRow.suggestion}</Descriptions.Item>
+              <Descriptions.Item label="错误说明" span={2}>{detailRow.message}</Descriptions.Item>
+            </Descriptions>
+            <Alert className="drawer-alert" type="info" showIcon message="入库规则" description="错误级别记录不会批量入库；警告记录可在确认后入库，但需保留警告说明和操作日志。" />
+          </>
+        )}
+      </Drawer>
+
+      <Modal title="批量入库确认" open={importOpen} onCancel={() => setImportOpen(false)} onOk={confirmImport} okText="确认入库" cancelText="取消">
+        <Descriptions bordered column={1} size="small">
+          <Descriptions.Item label="文件名">{fileName}</Descriptions.Item>
+          <Descriptions.Item label="可入库记录">{summary.ready} 行</Descriptions.Item>
+          <Descriptions.Item label="不入库记录">{summary.error} 行错误、{summary.warning} 行警告待复核</Descriptions.Item>
+          <Descriptions.Item label="审计记录">记录上传人、机构、批次号、文件名、入库数量和异常数量。</Descriptions.Item>
+        </Descriptions>
+      </Modal>
+
+      <Modal title="逐条处理" open={Boolean(handleRow)} onCancel={() => setHandleRow(null)} onOk={saveHandleRow} okText="保存处理" cancelText="取消" width={780}>
+        {handleRow && (
+          <>
+            <Alert type="warning" showIcon message={handleRow.errorType} description={handleRow.message} style={{ marginBottom: 16 }} />
+            <Form layout="vertical" initialValues={{ no: handleRow.no, name: handleRow.name, contactDate: handleRow.contactDate, contactStatus: handleRow.contactStatus, note: handleRow.suggestion }}>
+              <Row gutter={12}>
+                <Col span={6}><Form.Item name="no" label="登记编号"><Input /></Form.Item></Col>
+                <Col span={6}><Form.Item name="name" label="姓名"><Input /></Form.Item></Col>
+                <Col span={6}><Form.Item name="contactDate" label="最后接触日期"><Input /></Form.Item></Col>
+                <Col span={6}><Form.Item name="contactStatus" label="接触状态"><Select options={[{ value: "存活" }, { value: "失访" }, { value: "死亡" }]} /></Form.Item></Col>
+                <Col span={8}><Form.Item name="deathDate" label="死亡日期"><Input placeholder="死亡状态下填写" /></Form.Item></Col>
+                <Col span={8}><Form.Item name="deathCause" label="死亡原因"><Select allowClear options={[{ value: "肿瘤相关死亡" }, { value: "心脑血管疾病" }, { value: "其他原因" }]} /></Form.Item></Col>
+                <Col span={8}><Form.Item name="deathPlace" label="死亡地点"><Select allowClear options={[{ value: "医院" }, { value: "家中" }, { value: "其他" }]} /></Form.Item></Col>
+                <Col span={24}><Form.Item name="note" label="处理说明"><Input.TextArea rows={3} /></Form.Item></Col>
+              </Row>
+            </Form>
+          </>
+        )}
       </Modal>
     </div>
   );

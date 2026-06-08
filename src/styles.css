@@ -367,6 +367,20 @@ body,
   line-height: 1.6;
 }
 
+.batch-upload-row {
+  margin-bottom: 2px;
+}
+
+.upload-file-name {
+  display: inline-block;
+  max-width: 260px;
+  margin-left: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 .app-header .ant-space {
   flex: none;
 }
