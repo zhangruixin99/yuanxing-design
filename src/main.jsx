@@ -370,6 +370,77 @@ const batchFollowupErrors = [
   }
 ];
 
+const followupPlanRows = [
+  {
+    key: "1",
+    no: "HN-2026-000183",
+    name: "张秀兰",
+    idCard: "41010519630215482X",
+    region: "郑州市金水区",
+    diagnosis: "C50.9 乳腺恶性肿瘤",
+    lastContactDate: "2026-06-06",
+    patientStatus: "存活",
+    plannedDate: "2026-09-06",
+    rule: "术后 3 个月复访",
+    taskStatus: "待生成",
+    ownerOrg: "金水区疾控中心",
+    ownerUser: "周敏",
+    overdueDays: 0,
+    latestFollowup: "2026-06-06 电话随访：患者术后恢复稳定"
+  },
+  {
+    key: "2",
+    no: "HN-2026-000185",
+    name: "赵海",
+    idCard: "411002198103094210",
+    region: "许昌市魏都区",
+    diagnosis: "C22.0 肝细胞癌",
+    lastContactDate: "2026-06-02",
+    patientStatus: "失访",
+    plannedDate: "2026-06-30",
+    rule: "失访 30 日基层协查",
+    taskStatus: "已生成",
+    ownerOrg: "魏都区疾控中心",
+    ownerUser: "刘丽",
+    overdueDays: 0,
+    latestFollowup: "2026-06-02 基层协查：电话停机，需下次协查"
+  },
+  {
+    key: "3",
+    no: "HN-2025-007716",
+    name: "马玉梅",
+    idCard: "410105195902214829",
+    region: "郑州市金水区",
+    diagnosis: "C34.9 肺恶性肿瘤",
+    lastContactDate: "2025-12-20",
+    patientStatus: "存活",
+    plannedDate: "2026-05-20",
+    rule: "半年常规随访",
+    taskStatus: "逾期",
+    ownerOrg: "郑州市疾控中心",
+    ownerUser: "李文华",
+    overdueDays: 19,
+    latestFollowup: "2025-12-20 电话随访：患者在家康复"
+  },
+  {
+    key: "4",
+    no: "HN-2025-008432",
+    name: "陈国强",
+    idCard: "410103195802073016",
+    region: "郑州市二七区",
+    diagnosis: "C16.9 胃恶性肿瘤",
+    lastContactDate: "2026-05-30",
+    patientStatus: "死亡",
+    plannedDate: "-",
+    rule: "死亡记录排除",
+    taskStatus: "已排除",
+    ownerOrg: "郑州市疾控中心",
+    ownerUser: "李文华",
+    overdueDays: 0,
+    latestFollowup: "2026-05-30 死因匹配：需进入死亡信息管理补全"
+  }
+];
+
 const duplicateRows = [
   { key: "1", group: "DUP-202606-001", cards: "HN-2026-000183 / HN-2025-009812", basis: "身份证号 + 姓名 + 出生日期", judge: "疑似重复", risk: "高" },
   { key: "2", group: "DUP-202606-002", cards: "HN-2026-000185 / HN-2024-006381", basis: "姓名 + 联系电话 + 常住地址", judge: "疑似多原发", risk: "中" }
@@ -395,6 +466,11 @@ function statusTag(value) {
     已作废: "error",
     已还原: "success",
     待物理删除: "warning",
+    已完成: "success",
+    已生成: "processing",
+    待生成: "warning",
+    已排除: "default",
+    逾期: "error",
     待县区审核: "warning",
     待省级终审: "warning",
     待审批: "warning",
@@ -586,6 +662,9 @@ function FeaturePage({ feature, role, openBusinessModal, showDetail }) {
   }
   if (feature?.id === "followup_02") {
     return <BatchFollowupManagement role={role} />;
+  }
+  if (feature?.id === "followup_03") {
+    return <FollowupPlanManagement role={role} />;
   }
 
   const moduleId = feature?.module?.id;
@@ -2079,22 +2158,24 @@ function BatchFollowupManagement({ role }) {
 
   return (
     <div className="batch-followup-page">
-      <Row gutter={16} className="batch-upload-row">
-        <Col span={8}>
-          <Card title="模板下载" className="form-section" size="small">
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="模板版本">V2026.06</Descriptions.Item>
-              <Descriptions.Item label="适用范围">随访信息批量新增和最新状态更新</Descriptions.Item>
-              <Descriptions.Item label="死亡字段">死亡状态需填写死亡日期、死亡原因、死亡地点</Descriptions.Item>
-            </Descriptions>
-            <Button type="primary" icon={<UploadOutlined />} onClick={downloadTemplate}>
-              下载模板
-            </Button>
+      <Row gutter={16} align="stretch" className="batch-upload-row">
+        <Col span={7}>
+          <Card title="模板下载" className="form-section batch-panel" size="small">
+            <div className="template-info-list">
+              <div><Text type="secondary">模板版本</Text><Text strong>V2026.06</Text></div>
+              <div><Text type="secondary">适用范围</Text><Text strong>批量新增与最新状态更新</Text></div>
+              <div><Text type="secondary">死亡字段</Text><Text strong>死亡日期、死亡原因、死亡地点</Text></div>
+            </div>
+            <div className="batch-panel-actions">
+              <Button type="primary" icon={<UploadOutlined />} onClick={downloadTemplate}>
+                下载模板
+              </Button>
+            </div>
           </Card>
         </Col>
-        <Col span={16}>
-          <Card title="上传校验" className="form-section" size="small">
-            <Form layout="vertical" initialValues={{ batchNo: "FUP-20260608-001", org: role.label === "医疗机构填报员" ? "河南省人民医院" : "郑州市疾控中心", method: "电话随访" }}>
+        <Col span={17}>
+          <Card title="上传校验" className="form-section batch-panel" size="small">
+            <Form className="batch-upload-form" layout="vertical" initialValues={{ batchNo: "FUP-20260608-001", org: role.label === "医疗机构填报员" ? "河南省人民医院" : "郑州市疾控中心", method: "电话随访" }}>
               <Row gutter={12}>
                 <Col span={6}>
                   <Form.Item name="batchNo" label="上传批次号">
@@ -2113,10 +2194,12 @@ function BatchFollowupManagement({ role }) {
                 </Col>
                 <Col span={7}>
                   <Form.Item label="随访文件">
-                    <Upload beforeUpload={beforeUpload} maxCount={1} showUploadList={false} accept=".xlsx,.xls,.csv">
-                      <Button icon={<UploadOutlined />}>选择文件</Button>
-                    </Upload>
-                    <Text className="upload-file-name" type="secondary">{fileName}</Text>
+                    <div className="upload-control-line">
+                      <Upload beforeUpload={beforeUpload} maxCount={1} showUploadList={false} accept=".xlsx,.xls,.csv">
+                        <Button icon={<UploadOutlined />}>选择文件</Button>
+                      </Upload>
+                      <Text className="upload-file-name" type="secondary">{fileName}</Text>
+                    </div>
                   </Form.Item>
                 </Col>
                 <Col span={24}>
@@ -2126,7 +2209,7 @@ function BatchFollowupManagement({ role }) {
                 </Col>
               </Row>
             </Form>
-            <Space>
+            <Space className="batch-panel-actions">
               <Button type="primary" icon={<UploadOutlined />} onClick={validateUpload}>
                 上传校验
               </Button>
@@ -2253,6 +2336,238 @@ function BatchFollowupManagement({ role }) {
             </Form>
           </>
         )}
+      </Modal>
+    </div>
+  );
+}
+
+function FollowupPlanManagement({ role }) {
+  const [form] = Form.useForm();
+  const [assignForm] = Form.useForm();
+  const [query, setQuery] = useState({});
+  const [detailRow, setDetailRow] = useState(null);
+  const [assignRow, setAssignRow] = useState(null);
+  const [generateRow, setGenerateRow] = useState(null);
+  const [delayRow, setDelayRow] = useState(null);
+  const [cancelRow, setCancelRow] = useState(null);
+
+  const filteredRows = followupPlanRows.filter((row) => {
+    if (query.region && query.region !== "全部区划" && !row.region.includes(query.region)) return false;
+    if (query.taskStatus && query.taskStatus !== "全部状态" && row.taskStatus !== query.taskStatus) return false;
+    if (query.patientStatus && query.patientStatus !== "全部患者" && row.patientStatus !== query.patientStatus) return false;
+    if (query.keyword) {
+      const field = query.searchType || "登记编号";
+      const value = query.keyword.trim();
+      if (field === "登记编号" && !row.no.includes(value)) return false;
+      if (field === "姓名" && !row.name.includes(value)) return false;
+      if (field === "身份证号" && !row.idCard.includes(value)) return false;
+    }
+    return true;
+  });
+
+  const planSummary = {
+    shouldFollow: followupPlanRows.filter((row) => row.patientStatus !== "死亡").length,
+    generated: followupPlanRows.filter((row) => row.taskStatus === "已生成").length,
+    overdue: followupPlanRows.filter((row) => row.taskStatus === "逾期").length,
+    excluded: followupPlanRows.filter((row) => row.taskStatus === "已排除").length,
+    today: 2
+  };
+
+  function openAssign(row) {
+    setAssignRow(row);
+    assignForm.setFieldsValue({
+      ownerOrg: row.ownerOrg,
+      ownerUser: row.ownerUser,
+      plannedDate: row.plannedDate === "-" ? "2026-06-30" : row.plannedDate,
+      note: row.patientStatus === "失访" ? "失访患者默认分派基层协查" : ""
+    });
+  }
+
+  function confirmAssign() {
+    setAssignRow(null);
+    message.success("随访任务已分派，并写入任务流转记录");
+  }
+
+  function confirmGenerate() {
+    setGenerateRow(null);
+    message.success("随访任务已生成，责任机构将收到待办提醒");
+  }
+
+  function confirmDelay() {
+    setDelayRow(null);
+    message.success("随访计划已延期，延期原因已记录");
+  }
+
+  function confirmCancel() {
+    setCancelRow(null);
+    message.success("随访计划已取消，不再生成常规随访任务");
+  }
+
+  const columns = [
+    {
+      title: "登记编号",
+      dataIndex: "no",
+      width: 160,
+      fixed: "left",
+      render: (value, row) => (
+        <Button type="link" className="link-cell" onClick={() => setDetailRow(row)}>
+          {value}
+        </Button>
+      )
+    },
+    { title: "姓名", dataIndex: "name", width: 90 },
+    { title: "身份证号", dataIndex: "idCard", width: 190 },
+    { title: "行政区划", dataIndex: "region", width: 150 },
+    { title: "诊断信息", dataIndex: "diagnosis", width: 210 },
+    { title: "最后接触日期", dataIndex: "lastContactDate", width: 125 },
+    { title: "当前状态", dataIndex: "patientStatus", width: 105, render: statusTag },
+    { title: "计划随访日期", dataIndex: "plannedDate", width: 125 },
+    { title: "计划规则", dataIndex: "rule", width: 170 },
+    {
+      title: "任务状态",
+      dataIndex: "taskStatus",
+      width: 105,
+      render: (value, row) => (
+        <Space size={4}>
+          {statusTag(value)}
+          {row.overdueDays > 0 && <Tag color="red">逾期 {row.overdueDays} 天</Tag>}
+        </Space>
+      )
+    },
+    { title: "责任机构", dataIndex: "ownerOrg", width: 160 },
+    { title: "责任人", dataIndex: "ownerUser", width: 90 },
+    {
+      title: "操作",
+      width: 320,
+      fixed: "right",
+      render: (_, row) => {
+        const excluded = row.patientStatus === "死亡" || row.taskStatus === "已排除";
+        return (
+          <Space size={4}>
+            <Button type="link" onClick={() => setDetailRow(row)}>详情</Button>
+            <Button type="link" disabled={excluded || row.taskStatus !== "待生成"} onClick={() => setGenerateRow(row)}>生成任务</Button>
+            <Button type="link" disabled={excluded} onClick={() => openAssign(row)}>分派</Button>
+            <Button type="link" disabled={excluded} onClick={() => message.success(`${row.no} 已标记完成，随访信息同步更新`)}>标记完成</Button>
+            <Button type="link" disabled={excluded} onClick={() => setDelayRow(row)}>延期</Button>
+            <Button type="link" danger disabled={excluded} onClick={() => setCancelRow(row)}>取消计划</Button>
+          </Space>
+        );
+      }
+    }
+  ];
+
+  return (
+    <div className="followup-plan-page">
+      <Card className="search-card maintenance-search">
+        <Form form={form} layout="inline" initialValues={{ region: "全部区划", taskStatus: "全部状态", patientStatus: "全部患者", cancerType: "全部癌种", dateType: "计划随访日期", searchType: "登记编号" }}>
+          <Form.Item name="region">
+            <Select className="filter-select" options={[{ value: "全部区划" }, { value: "郑州市" }, { value: "许昌市" }, { value: "洛阳市" }]} />
+          </Form.Item>
+          <Form.Item name="taskStatus">
+            <Select className="filter-select" options={[{ value: "全部状态" }, { value: "待生成" }, { value: "已生成" }, { value: "逾期" }, { value: "已排除" }]} />
+          </Form.Item>
+          <Form.Item name="patientStatus">
+            <Select className="filter-select" options={[{ value: "全部患者" }, { value: "存活" }, { value: "失访" }, { value: "死亡" }]} />
+          </Form.Item>
+          <Form.Item name="cancerType">
+            <Select className="filter-select" options={[{ value: "全部癌种" }, { value: "乳腺" }, { value: "肺" }, { value: "肝" }, { value: "胃" }]} />
+          </Form.Item>
+          <Form.Item name="dateType">
+            <Select className="filter-select" options={[{ value: "计划随访日期" }, { value: "最后接触日期" }, { value: "确诊日期" }]} />
+          </Form.Item>
+          <Form.Item name="dateRange">
+            <Input className="date-range-input" placeholder="2026-06-01 至 2026-06-30" />
+          </Form.Item>
+          <Form.Item name="searchType">
+            <Select className="filter-select small" options={[{ value: "登记编号" }, { value: "姓名" }, { value: "身份证号" }]} />
+          </Form.Item>
+          <Form.Item name="keyword">
+            <Input prefix={<SearchOutlined />} className="keyword-input" placeholder="请输入检索内容" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" icon={<SearchOutlined />} onClick={() => { setQuery(form.getFieldsValue()); message.success("随访计划查询完成"); }}>
+                查询
+              </Button>
+              <Button onClick={() => { form.resetFields(); setQuery({}); }}>重置</Button>
+              <Button type="primary" onClick={() => message.success("已按当前规则生成可随访任务，死亡和作废记录自动排除")}>批量生成</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Row gutter={16} className="plan-stat-row">
+        <Col span={5}><Card><Statistic title="应随访人数" value={planSummary.shouldFollow} suffix="人" /></Card></Col>
+        <Col span={5}><Card><Statistic title="已生成任务" value={planSummary.generated} suffix="条" valueStyle={{ color: "#2563eb" }} /></Card></Col>
+        <Col span={5}><Card><Statistic title="逾期任务" value={planSummary.overdue} suffix="条" valueStyle={{ color: "#dc2626" }} /></Card></Col>
+        <Col span={5}><Card><Statistic title="死亡/作废排除" value={planSummary.excluded} suffix="条" /></Card></Col>
+        <Col span={4}><Card><Statistic title="今日待随访" value={planSummary.today} suffix="条" valueStyle={{ color: "#16a34a" }} /></Card></Col>
+      </Row>
+
+      <Card className="table-card">
+        <Alert
+          className="table-alert"
+          type="info"
+          showIcon
+          message="随访计划用于生成和分派任务，不直接修改随访记录"
+          description="死亡、作废、归档记录不生成常规随访任务；失访患者默认生成基层协查任务；逾期任务在列表中红色标记。"
+        />
+        <Table columns={columns} dataSource={filteredRows} pagination={false} scroll={{ x: 1900 }} />
+        <Flex justify="space-between" align="center" className="pagination-row">
+          <Text type="secondary">共 {filteredRows.length} 条计划，第 1 / 1 页</Text>
+          <Pagination current={1} total={filteredRows.length} pageSize={10} />
+        </Flex>
+      </Card>
+
+      <Drawer title="随访计划详情" open={Boolean(detailRow)} onClose={() => setDetailRow(null)} width={820}>
+        {detailRow && (
+          <>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="登记编号">{detailRow.no}</Descriptions.Item>
+              <Descriptions.Item label="姓名">{detailRow.name}</Descriptions.Item>
+              <Descriptions.Item label="身份证号" span={2}>{detailRow.idCard}</Descriptions.Item>
+              <Descriptions.Item label="行政区划">{detailRow.region}</Descriptions.Item>
+              <Descriptions.Item label="当前状态">{statusTag(detailRow.patientStatus)}</Descriptions.Item>
+              <Descriptions.Item label="诊断信息" span={2}>{detailRow.diagnosis}</Descriptions.Item>
+              <Descriptions.Item label="最近随访" span={2}>{detailRow.latestFollowup}</Descriptions.Item>
+              <Descriptions.Item label="计划随访日期">{detailRow.plannedDate}</Descriptions.Item>
+              <Descriptions.Item label="计划规则">{detailRow.rule}</Descriptions.Item>
+              <Descriptions.Item label="任务状态">{statusTag(detailRow.taskStatus)}</Descriptions.Item>
+              <Descriptions.Item label="责任机构">{detailRow.ownerOrg}</Descriptions.Item>
+            </Descriptions>
+            <Card title="任务流转记录" size="small" className="history-card">
+              <Timeline
+                items={[
+                  { color: "blue", children: `${detailRow.lastContactDate} 根据最后接触状态计算计划规则：${detailRow.rule}` },
+                  { color: detailRow.taskStatus === "逾期" ? "red" : "green", children: `${detailRow.plannedDate} 当前任务状态：${detailRow.taskStatus}` }
+                ]}
+              />
+            </Card>
+          </>
+        )}
+      </Drawer>
+
+      <Modal title="生成随访任务" open={Boolean(generateRow)} onCancel={() => setGenerateRow(null)} onOk={confirmGenerate} okText="确认生成" cancelText="取消">
+        <Alert type="info" showIcon message="确认生成随访任务" description={`登记编号 ${generateRow?.no || ""} 将按规则“${generateRow?.rule || ""}”生成任务，并分派给 ${generateRow?.ownerOrg || ""}。`} />
+      </Modal>
+
+      <Modal title="分派随访任务" open={Boolean(assignRow)} onCancel={() => setAssignRow(null)} onOk={confirmAssign} okText="保存分派" cancelText="取消" width={720}>
+        <Form form={assignForm} layout="vertical">
+          <Row gutter={12}>
+            <Col span={8}><Form.Item name="ownerOrg" label="责任机构" rules={[{ required: true, message: "请选择责任机构" }]}><Select options={[{ value: "金水区疾控中心" }, { value: "魏都区疾控中心" }, { value: "郑州市疾控中心" }]} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="ownerUser" label="责任人" rules={[{ required: true, message: "请选择责任人" }]}><Select options={[{ value: "周敏" }, { value: "李文华" }, { value: "刘丽" }]} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="plannedDate" label="计划完成日期" rules={[{ required: true, message: "请输入计划完成日期" }]}><Input /></Form.Item></Col>
+            <Col span={24}><Form.Item name="note" label="分派说明"><Input.TextArea rows={3} placeholder="填写分派原因、协查要求或特殊说明" /></Form.Item></Col>
+          </Row>
+        </Form>
+      </Modal>
+
+      <Modal title="延期随访计划" open={Boolean(delayRow)} onCancel={() => setDelayRow(null)} onOk={confirmDelay} okText="确认延期" cancelText="取消">
+        <Alert type="warning" showIcon message="延期会重新计算逾期状态" description={`登记编号 ${delayRow?.no || ""} 当前计划日期为 ${delayRow?.plannedDate || ""}。正式系统需填写延期原因和新的计划日期。`} />
+      </Modal>
+
+      <Modal title="取消随访计划" open={Boolean(cancelRow)} onCancel={() => setCancelRow(null)} onOk={confirmCancel} okText="确认取消" cancelText="取消" okButtonProps={{ danger: true }}>
+        <Alert type="warning" showIcon message="取消后不再生成常规随访任务" description={`登记编号 ${cancelRow?.no || ""} 的计划将标记为已取消。死亡、作废或归档记录应使用自动排除规则。`} />
       </Modal>
     </div>
   );

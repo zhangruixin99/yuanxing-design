@@ -368,17 +368,97 @@ body,
 }
 
 .batch-upload-row {
-  margin-bottom: 2px;
+  margin-right: 0 !important;
+  margin-bottom: 16px;
+  margin-left: 0 !important;
+}
+
+.batch-upload-row .ant-col,
+.batch-upload-row .ant-card {
+  display: flex;
+}
+
+.batch-upload-row .ant-card {
+  width: 100%;
+}
+
+.batch-upload-row .ant-col,
+.batch-upload-form .ant-col {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.batch-upload-row .ant-card-body {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.batch-panel {
+  margin-bottom: 0;
+}
+
+.template-info-list {
+  display: grid;
+  gap: 12px;
+}
+
+.template-info-list > div {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  min-height: 28px;
+}
+
+.template-info-list .ant-typography {
+  margin: 0;
+}
+
+.batch-panel-actions {
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.batch-upload-form .ant-form-item {
+  margin-bottom: 12px;
+}
+
+.batch-upload-form {
+  overflow: hidden;
+}
+
+.batch-upload-form .ant-row {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
+
+.upload-control-line {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
 .upload-file-name {
-  display: inline-block;
-  max-width: 260px;
-  margin-left: 10px;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  vertical-align: middle;
   white-space: nowrap;
+}
+
+.plan-stat-row {
+  margin-bottom: 16px;
+}
+
+.plan-stat-row .ant-card {
+  border: 0;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.05);
 }
 
 .app-header .ant-space {
