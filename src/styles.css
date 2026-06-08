@@ -210,10 +210,10 @@ body,
 }
 
 .search-line {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  flex-wrap: wrap;
+  padding-bottom: 0;
   min-width: 100%;
+  row-gap: 10px;
 }
 
 .search-controls,
@@ -294,20 +294,24 @@ body,
 }
 
 .maintenance-search .ant-card-body {
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 .maintenance-search .ant-form {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  min-width: 1250px;
-  gap: 0;
+  gap: 10px 12px;
 }
 
 .maintenance-search .ant-form-item {
-  margin-right: 10px;
+  margin-right: 0;
   margin-bottom: 0;
+  flex: none;
+}
+
+.maintenance-search .ant-form-item:last-child {
+  margin-left: auto;
 }
 
 .filter-select.small {
@@ -368,12 +372,12 @@ body,
   }
 
   .search-card .ant-card-body {
-    overflow-x: auto;
+    overflow-x: visible;
   }
 
   .search-line {
-    width: max-content;
-    min-width: 900px;
+    width: 100%;
+    min-width: 0;
   }
 
   .search-controls,
