@@ -110,11 +110,15 @@ const records = [
     key: "1",
     no: "HN-2026-000183",
     name: "张秀兰",
+    idCard: "41010519630215482X",
     sex: "女",
     age: 63,
     region: "郑州市金水区",
     org: "河南省人民医院",
     diagnosis: "C50.9 乳腺恶性肿瘤",
+    reportType: "原始卡",
+    reportDate: "2026-06-05",
+    diagnosisDate: "2026-06-01",
     status: "待县区审核",
     quality: "警告"
   },
@@ -122,11 +126,15 @@ const records = [
     key: "2",
     no: "HN-2026-000184",
     name: "王建国",
+    idCard: "410305195504201238",
     sex: "男",
     age: 71,
     region: "洛阳市涧西区",
     org: "洛阳市中心医院",
     diagnosis: "C34.1 上叶肺癌",
+    reportType: "原始卡",
+    reportDate: "2026-06-04",
+    diagnosisDate: "2026-05-28",
     status: "正式",
     quality: "通过"
   },
@@ -134,11 +142,15 @@ const records = [
     key: "3",
     no: "JX-2026-000041",
     name: "刘梅",
+    idCard: "360102197402118224",
     sex: "女",
     age: 52,
     region: "南昌市东湖区",
     org: "江西省肿瘤医院",
     diagnosis: "C18.7 乙状结肠癌",
+    reportType: "补报卡",
+    reportDate: "2026-06-03",
+    diagnosisDate: "2026-05-20",
     status: "退回修正",
     quality: "错误"
   },
@@ -146,11 +158,15 @@ const records = [
     key: "4",
     no: "HN-2026-000185",
     name: "赵海",
+    idCard: "411002198103094210",
     sex: "男",
     age: 45,
     region: "许昌市魏都区",
     org: "许昌市人民医院",
     diagnosis: "C22.0 肝细胞癌",
+    reportType: "原始卡",
+    reportDate: "2026-06-02",
+    diagnosisDate: "2026-05-29",
     status: "待省级终审",
     quality: "通过"
   },
@@ -158,11 +174,15 @@ const records = [
     key: "5",
     no: "HN-2025-008432",
     name: "陈国强",
+    idCard: "410103195802073016",
     sex: "男",
     age: 68,
     region: "郑州市二七区",
     org: "郑大一附院",
     diagnosis: "C16.9 胃恶性肿瘤",
+    reportType: "合并卡",
+    reportDate: "2025-12-21",
+    diagnosisDate: "2025-12-15",
     status: "死亡待更新",
     quality: "警告"
   }
@@ -382,6 +402,9 @@ function App() {
 function FeaturePage({ feature, role, openBusinessModal, showDetail }) {
   if (feature?.id === "cards_01") {
     return <ReportCardRegistration />;
+  }
+  if (feature?.id === "cards_02") {
+    return <ReportCardMaintenance />;
   }
 
   const moduleId = feature?.module?.id;
@@ -785,6 +808,223 @@ function ReportCardRegistration() {
           <Descriptions.Item label="疑似记录">HN-2025-009812 / C50.4 乳腺恶性肿瘤</Descriptions.Item>
           <Descriptions.Item label="处理建议">如为同一次肿瘤报告，后续在重卡管理中对比合并；如疑似多原发，请由登记中心复核。</Descriptions.Item>
         </Descriptions>
+      </Modal>
+    </div>
+  );
+}
+
+function ReportCardMaintenance() {
+  const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
+  const [query, setQuery] = useState({});
+  const [detailRow, setDetailRow] = useState(null);
+  const [editRow, setEditRow] = useState(null);
+  const [deleteRow, setDeleteRow] = useState(null);
+
+  const filteredRows = records.filter((row) => {
+    if (query.region && query.region !== "全部区划" && !row.region.includes(query.region)) return false;
+    if (query.quality && query.quality !== "全部状态" && row.quality !== query.quality) return false;
+    if (query.reportType && query.reportType !== "全部类型" && row.reportType !== query.reportType) return false;
+    if (query.keyword) {
+      const field = query.searchType || "登记编号";
+      const value = query.keyword.trim();
+      if (field === "登记编号" && !row.no.includes(value)) return false;
+      if (field === "姓名" && !row.name.includes(value)) return false;
+      if (field === "身份证号" && !row.idCard.includes(value)) return false;
+    }
+    return true;
+  });
+
+  function doSearch() {
+    setQuery(form.getFieldsValue());
+    message.success("查询完成");
+  }
+
+  function resetSearch() {
+    form.resetFields();
+    setQuery({});
+  }
+
+  function openEdit(row) {
+    setEditRow(row);
+    editForm.setFieldsValue(row);
+  }
+
+  function saveEdit() {
+    editForm
+      .validateFields()
+      .then(() => {
+        setEditRow(null);
+        message.success("报告卡修改已保存，并重新执行逻辑校验");
+      })
+      .catch(() => message.error("保存失败：请补全必填项"));
+  }
+
+  function confirmDelete() {
+    setDeleteRow(null);
+    message.success("报告卡已逻辑删除，可在作废卡管理中恢复或物理删除");
+  }
+
+  const columns = [
+    {
+      title: "登记编号",
+      dataIndex: "no",
+      width: 160,
+      fixed: "left",
+      render: (value, row) => (
+        <Button type="link" className="link-cell" onClick={() => setDetailRow(row)}>
+          {value}
+        </Button>
+      )
+    },
+    { title: "姓名", dataIndex: "name", width: 90 },
+    { title: "性别", dataIndex: "sex", width: 70 },
+    { title: "年龄", dataIndex: "age", width: 70 },
+    { title: "身份证号", dataIndex: "idCard", width: 190 },
+    { title: "行政区划", dataIndex: "region", width: 150 },
+    { title: "报告单位", dataIndex: "org", width: 170 },
+    { title: "诊断信息", dataIndex: "diagnosis", width: 210 },
+    { title: "报卡类型", dataIndex: "reportType", width: 100 },
+    { title: "报告日期", dataIndex: "reportDate", width: 115 },
+    { title: "校验状态", dataIndex: "quality", width: 110, render: statusTag },
+    { title: "审核状态", dataIndex: "status", width: 120, render: statusTag },
+    {
+      title: "操作",
+      width: 160,
+      fixed: "right",
+      render: (_, row) => (
+        <Space size={4}>
+          <Button type="link" onClick={() => openEdit(row)}>
+            编辑
+          </Button>
+          <Button type="link" danger onClick={() => setDeleteRow(row)}>
+            删除
+          </Button>
+        </Space>
+      )
+    }
+  ];
+
+  return (
+    <div className="maintenance-page">
+      <Card className="search-card maintenance-search">
+        <Form form={form} layout="inline" initialValues={{ region: "全部区划", quality: "全部状态", reportType: "全部类型", dateType: "报告日期", searchType: "登记编号" }}>
+          <Form.Item name="region">
+            <Select className="filter-select" options={[{ value: "全部区划" }, { value: "郑州市" }, { value: "洛阳市" }, { value: "许昌市" }, { value: "南昌市" }]} />
+          </Form.Item>
+          <Form.Item name="quality">
+            <Select className="filter-select" options={[{ value: "全部状态" }, { value: "通过" }, { value: "警告" }, { value: "错误" }]} />
+          </Form.Item>
+          <Form.Item name="reportType">
+            <Select className="filter-select" options={[{ value: "全部类型" }, { value: "原始卡" }, { value: "补报卡" }, { value: "合并卡" }, { value: "多原发卡" }]} />
+          </Form.Item>
+          <Form.Item name="dateType">
+            <Select className="filter-select" options={[{ value: "报告日期" }, { value: "诊断日期" }, { value: "录入日期" }]} />
+          </Form.Item>
+          <Form.Item name="dateRange">
+            <Input className="date-range-input" placeholder="2026-06-01 至 2026-06-30" />
+          </Form.Item>
+          <Form.Item name="searchType">
+            <Select className="filter-select small" options={[{ value: "登记编号" }, { value: "姓名" }, { value: "身份证号" }]} />
+          </Form.Item>
+          <Form.Item name="keyword">
+            <Input prefix={<SearchOutlined />} className="keyword-input" placeholder="请输入检索内容" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" icon={<SearchOutlined />} onClick={doSearch}>
+                查询
+              </Button>
+              <Button onClick={resetSearch}>重置</Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => message.info("新增入口沿用报告卡登记表单")}>
+                添加
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Card className="table-card">
+        <Table columns={columns} dataSource={filteredRows} pagination={false} scroll={{ x: 1500 }} />
+        <Flex justify="space-between" align="center" className="pagination-row">
+          <Text type="secondary">共 {filteredRows.length} 条记录，第 1 / 1 页</Text>
+          <Pagination current={1} total={filteredRows.length} pageSize={10} />
+        </Flex>
+      </Card>
+
+      <Drawer title="报告卡详细信息" open={Boolean(detailRow)} onClose={() => setDetailRow(null)} width={720}>
+        {detailRow && (
+          <>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="登记编号">{detailRow.no}</Descriptions.Item>
+              <Descriptions.Item label="报卡类型">{detailRow.reportType}</Descriptions.Item>
+              <Descriptions.Item label="姓名">{detailRow.name}</Descriptions.Item>
+              <Descriptions.Item label="身份证号">{detailRow.idCard}</Descriptions.Item>
+              <Descriptions.Item label="性别">{detailRow.sex}</Descriptions.Item>
+              <Descriptions.Item label="年龄">{detailRow.age}</Descriptions.Item>
+              <Descriptions.Item label="行政区划">{detailRow.region}</Descriptions.Item>
+              <Descriptions.Item label="报告单位">{detailRow.org}</Descriptions.Item>
+              <Descriptions.Item label="诊断信息" span={2}>{detailRow.diagnosis}</Descriptions.Item>
+              <Descriptions.Item label="诊断日期">{detailRow.diagnosisDate}</Descriptions.Item>
+              <Descriptions.Item label="报告日期">{detailRow.reportDate}</Descriptions.Item>
+              <Descriptions.Item label="校验状态">{statusTag(detailRow.quality)}</Descriptions.Item>
+              <Descriptions.Item label="审核状态">{statusTag(detailRow.status)}</Descriptions.Item>
+            </Descriptions>
+            <Alert className="drawer-alert" type="info" showIcon message="操作提示" description="详情页保持只读；如需调整已录入信息，请返回列表点击编辑。所有查看和修改行为均写入报卡记录日志。" />
+          </>
+        )}
+      </Drawer>
+
+      <Modal title="编辑报告卡" open={Boolean(editRow)} onCancel={() => setEditRow(null)} onOk={saveEdit} okText="保存" cancelText="取消" width={820}>
+        <Alert type="warning" showIcon message="编辑后将重新校验" description="保存时会重新执行必填、身份证逻辑、ICD 编码和随访死亡联动校验；正式数据修改会保留前后值。" style={{ marginBottom: 16 }} />
+        <Form form={editForm} layout="vertical">
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="no" label="登记编号">
+                <Input disabled />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="name" label="姓名" rules={[{ required: true, message: "请输入姓名" }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="idCard" label="身份证号" rules={[{ required: true, message: "请输入身份证号" }, { pattern: /^\d{17}[0-9Xx]$/, message: "身份证号必须为 18 位" }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="region" label="行政区划" rules={[{ required: true, message: "请选择行政区划" }]}>
+                <Select options={[{ value: "郑州市金水区" }, { value: "洛阳市涧西区" }, { value: "许昌市魏都区" }, { value: "南昌市东湖区" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="diagnosis" label="诊断信息" rules={[{ required: true, message: "请输入诊断信息" }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="quality" label="校验状态">
+                <Select options={[{ value: "通过" }, { value: "警告" }, { value: "错误" }]} />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="status" label="审核状态">
+                <Select options={[{ value: "待县区审核" }, { value: "待省级终审" }, { value: "正式" }, { value: "退回修正" }]} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
+
+      <Modal title="删除报告卡" open={Boolean(deleteRow)} onCancel={() => setDeleteRow(null)} onOk={confirmDelete} okText="确认删除" cancelText="取消" okButtonProps={{ danger: true }}>
+        <Alert
+          type="warning"
+          showIcon
+          message="本操作为逻辑删除"
+          description={`登记编号 ${deleteRow?.no || ""} 删除后将进入作废卡管理，可由授权用户恢复；如需物理删除，需在作废卡管理中单独执行。`}
+        />
       </Modal>
     </div>
   );

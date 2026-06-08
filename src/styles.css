@@ -229,6 +229,46 @@ body,
   background: linear-gradient(180deg, rgba(245, 247, 251, 0), #f5f7fb 36%);
 }
 
+.maintenance-search .ant-card-body {
+  overflow-x: auto;
+}
+
+.maintenance-search .ant-form {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  min-width: 1250px;
+  gap: 0;
+}
+
+.maintenance-search .ant-form-item {
+  margin-right: 10px;
+  margin-bottom: 0;
+}
+
+.filter-select.small {
+  width: 120px;
+}
+
+.date-range-input {
+  width: 210px;
+  height: 40px;
+}
+
+.keyword-input {
+  width: 220px;
+  height: 40px;
+}
+
+.link-cell {
+  padding: 0;
+  height: auto;
+}
+
+.drawer-alert {
+  margin-top: 16px;
+}
+
 .app-header .ant-space {
   flex: none;
 }
