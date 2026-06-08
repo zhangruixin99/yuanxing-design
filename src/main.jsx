@@ -406,6 +406,9 @@ function FeaturePage({ feature, role, openBusinessModal, showDetail }) {
   if (feature?.id === "cards_02") {
     return <ReportCardMaintenance />;
   }
+  if (feature?.id === "cards_03") {
+    return <ReportCardQuery role={role} />;
+  }
 
   const moduleId = feature?.module?.id;
   const data = getRows(feature);
@@ -1025,6 +1028,196 @@ function ReportCardMaintenance() {
           message="本操作为逻辑删除"
           description={`登记编号 ${deleteRow?.no || ""} 删除后将进入作废卡管理，可由授权用户恢复；如需物理删除，需在作废卡管理中单独执行。`}
         />
+      </Modal>
+    </div>
+  );
+}
+
+function ReportCardQuery({ role }) {
+  const [form] = Form.useForm();
+  const [query, setQuery] = useState({});
+  const [detailRow, setDetailRow] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [cloneRow, setCloneRow] = useState(null);
+  const canClone = role.label !== "医疗机构填报员";
+
+  const filteredRows = records.filter((row) => {
+    if (query.region && query.region !== "全部区划" && !row.region.includes(query.region)) return false;
+    if (query.quality && query.quality !== "全部状态" && row.quality !== query.quality) return false;
+    if (query.reportType && query.reportType !== "全部类型" && row.reportType !== query.reportType) return false;
+    if (query.keyword) {
+      const field = query.searchType || "登记编号";
+      const value = query.keyword.trim();
+      if (field === "登记编号" && !row.no.includes(value)) return false;
+      if (field === "姓名" && !row.name.includes(value)) return false;
+      if (field === "身份证号" && !row.idCard.includes(value)) return false;
+    }
+    return true;
+  });
+
+  function doSearch() {
+    setQuery(form.getFieldsValue());
+    message.success("查询完成");
+  }
+
+  function resetSearch() {
+    form.resetFields();
+    setQuery({});
+  }
+
+  function confirmExport() {
+    setExportOpen(false);
+    message.success("导出任务已创建，文件生成后可在系统审计中查看下载记录");
+  }
+
+  function confirmClone() {
+    setCloneRow(null);
+    message.success(`已基于 ${cloneRow?.no} 创建克隆草稿，来源关系已保留`);
+  }
+
+  const columns = [
+    {
+      title: "登记编号",
+      dataIndex: "no",
+      width: 160,
+      fixed: "left",
+      render: (value, row) => (
+        <Button type="link" className="link-cell" onClick={() => setDetailRow(row)}>
+          {value}
+        </Button>
+      )
+    },
+    { title: "姓名", dataIndex: "name", width: 90 },
+    { title: "性别", dataIndex: "sex", width: 70 },
+    { title: "年龄", dataIndex: "age", width: 70 },
+    { title: "身份证号", dataIndex: "idCard", width: 190 },
+    { title: "行政区划", dataIndex: "region", width: 150 },
+    { title: "报告单位", dataIndex: "org", width: 170 },
+    { title: "发病部位/诊断信息", dataIndex: "diagnosis", width: 220 },
+    { title: "报卡类型", dataIndex: "reportType", width: 100 },
+    { title: "报告日期", dataIndex: "reportDate", width: 115 },
+    { title: "校验状态", dataIndex: "quality", width: 110, render: statusTag },
+    { title: "重卡状态", dataIndex: "duplicateStatus", width: 110, render: (_, row) => statusTag(row.no === "HN-2026-000183" ? "疑似重卡" : "通过") },
+    { title: "审核状态", dataIndex: "status", width: 120, render: statusTag },
+    {
+      title: "操作",
+      width: canClone ? 150 : 80,
+      fixed: "right",
+      render: (_, row) => (
+        <Space size={4}>
+          <Button type="link" onClick={() => setDetailRow(row)}>
+            详情
+          </Button>
+          {canClone && (
+            <Button type="link" onClick={() => setCloneRow(row)}>
+              克隆
+            </Button>
+          )}
+        </Space>
+      )
+    }
+  ];
+
+  return (
+    <div className="query-page">
+      <Card className="search-card maintenance-search">
+        <Form form={form} layout="inline" initialValues={{ region: "全部区划", quality: "全部状态", reportType: "全部类型", dateType: "报告日期", searchType: "登记编号" }}>
+          <Form.Item name="region">
+            <Select className="filter-select" options={[{ value: "全部区划" }, { value: "郑州市" }, { value: "洛阳市" }, { value: "许昌市" }, { value: "南昌市" }]} />
+          </Form.Item>
+          <Form.Item name="quality">
+            <Select className="filter-select" options={[{ value: "全部状态" }, { value: "通过" }, { value: "警告" }, { value: "错误" }]} />
+          </Form.Item>
+          <Form.Item name="reportType">
+            <Select className="filter-select" options={[{ value: "全部类型" }, { value: "原始卡" }, { value: "补报卡" }, { value: "合并卡" }, { value: "多原发卡" }]} />
+          </Form.Item>
+          <Form.Item name="dateType">
+            <Select className="filter-select" options={[{ value: "报告日期" }, { value: "诊断日期" }, { value: "录入日期" }]} />
+          </Form.Item>
+          <Form.Item name="dateRange">
+            <Input className="date-range-input" placeholder="2026-06-01 至 2026-06-30" />
+          </Form.Item>
+          <Form.Item name="searchType">
+            <Select className="filter-select small" options={[{ value: "登记编号" }, { value: "姓名" }, { value: "身份证号" }]} />
+          </Form.Item>
+          <Form.Item name="keyword">
+            <Input prefix={<SearchOutlined />} className="keyword-input" placeholder="请输入检索内容" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" icon={<SearchOutlined />} onClick={doSearch}>
+                查询
+              </Button>
+              <Button onClick={resetSearch}>重置</Button>
+              <Button type="primary" onClick={() => setExportOpen(true)}>
+                导出 Excel
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Card className="table-card">
+        {!canClone && (
+          <Alert
+            className="table-alert"
+            type="info"
+            showIcon
+            message="当前角色仅可查询本机构数据"
+            description="医疗机构填报员不显示报卡克隆操作。登记中心或辖区授权用户可对正式数据执行克隆调整。"
+          />
+        )}
+        <Table columns={columns} dataSource={filteredRows} pagination={false} scroll={{ x: 1650 }} />
+        <Flex justify="space-between" align="center" className="pagination-row">
+          <Text type="secondary">共 {filteredRows.length} 条记录，第 1 / 1 页</Text>
+          <Pagination current={1} total={filteredRows.length} pageSize={10} />
+        </Flex>
+      </Card>
+
+      <Drawer title="报告卡只读详情" open={Boolean(detailRow)} onClose={() => setDetailRow(null)} width={760}>
+        {detailRow && (
+          <>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="登记编号">{detailRow.no}</Descriptions.Item>
+              <Descriptions.Item label="报卡类型">{detailRow.reportType}</Descriptions.Item>
+              <Descriptions.Item label="姓名">{detailRow.name}</Descriptions.Item>
+              <Descriptions.Item label="身份证号">{detailRow.idCard}</Descriptions.Item>
+              <Descriptions.Item label="性别">{detailRow.sex}</Descriptions.Item>
+              <Descriptions.Item label="年龄">{detailRow.age}</Descriptions.Item>
+              <Descriptions.Item label="行政区划">{detailRow.region}</Descriptions.Item>
+              <Descriptions.Item label="报告单位">{detailRow.org}</Descriptions.Item>
+              <Descriptions.Item label="发病部位/诊断信息" span={2}>{detailRow.diagnosis}</Descriptions.Item>
+              <Descriptions.Item label="诊断日期">{detailRow.diagnosisDate}</Descriptions.Item>
+              <Descriptions.Item label="报告日期">{detailRow.reportDate}</Descriptions.Item>
+              <Descriptions.Item label="校验状态">{statusTag(detailRow.quality)}</Descriptions.Item>
+              <Descriptions.Item label="审核状态">{statusTag(detailRow.status)}</Descriptions.Item>
+            </Descriptions>
+            <Alert className="drawer-alert" type="info" showIcon message="查询页只读" description="报告卡查询仅提供详情查看、导出和授权克隆，不提供编辑和删除。修改请进入报告卡维护。" />
+          </>
+        )}
+      </Drawer>
+
+      <Modal title="导出 Excel" open={exportOpen} onCancel={() => setExportOpen(false)} onOk={confirmExport} okText="确认导出" cancelText="取消">
+        <Descriptions bordered column={1} size="small">
+          <Descriptions.Item label="导出范围">当前筛选条件下 {filteredRows.length} 条报告卡记录</Descriptions.Item>
+          <Descriptions.Item label="脱敏规则">按当前角色权限处理身份证号、联系电话、详细地址等敏感字段</Descriptions.Item>
+          <Descriptions.Item label="审计记录">导出人、时间、筛选条件、文件版本将写入系统操作日志</Descriptions.Item>
+        </Descriptions>
+      </Modal>
+
+      <Modal title="报卡克隆确认" open={Boolean(cloneRow)} onCancel={() => setCloneRow(null)} onOk={confirmClone} okText="确认克隆" cancelText="取消">
+        <Alert
+          type="warning"
+          showIcon
+          message="克隆会生成新的草稿报告卡"
+          description="该操作用于登记中心对辖区内非当前用户上报正式数据进行调整和合并，克隆后保留来源关系，仍需重新校验和审核。"
+          style={{ marginBottom: 16 }}
+        />
+        <Descriptions bordered column={1} size="small">
+          <Descriptions.Item label="来源登记编号">{cloneRow?.no}</Descriptions.Item>
+          <Descriptions.Item label="患者姓名">{cloneRow?.name}</Descriptions.Item>
+          <Descriptions.Item label="诊断信息">{cloneRow?.diagnosis}</Descriptions.Item>
+        </Descriptions>
       </Modal>
     </div>
   );
