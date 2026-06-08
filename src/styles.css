@@ -337,6 +337,12 @@ body,
   margin-top: 16px;
 }
 
+.drawer-action-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
 .table-alert {
   margin-bottom: 12px;
 }

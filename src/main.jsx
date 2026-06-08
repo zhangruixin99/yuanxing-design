@@ -441,6 +441,89 @@ const followupPlanRows = [
   }
 ];
 
+const deathInfoRows = [
+  {
+    key: "1",
+    no: "HN-2025-008432",
+    name: "陈国强",
+    sex: "男",
+    age: 68,
+    idCard: "410103195802073016",
+    region: "郑州市二七区",
+    org: "郑大一附院",
+    diagnosis: "C16.9 胃恶性肿瘤",
+    diagnosisDate: "2025-12-15",
+    lastContactDate: "2026-05-30",
+    deathDate: "2026-05-30",
+    deathCause: "肿瘤相关死亡",
+    deathPlace: "医院",
+    sourceType: "死因回流",
+    deathStatus: "待补全",
+    auditStatus: "死亡待更新",
+    rootCauseCode: "",
+    certificateSource: "死因监测系统",
+    rollbackAllowed: true,
+    archived: false,
+    histories: [
+      { date: "2026-05-30", method: "死因匹配", status: "死亡", doctor: "李文华", note: "死因系统回流，死亡原因和地点待补全。" },
+      { date: "2026-03-21", method: "电话随访", status: "存活", doctor: "王医生", note: "家属反馈患者化疗中。" }
+    ]
+  },
+  {
+    key: "2",
+    no: "HN-2024-006381",
+    name: "吴凤英",
+    sex: "女",
+    age: 74,
+    idCard: "410105195112098327",
+    region: "郑州市金水区",
+    org: "河南省肿瘤医院",
+    diagnosis: "C34.9 肺恶性肿瘤",
+    diagnosisDate: "2024-09-11",
+    lastContactDate: "2026-06-01",
+    deathDate: "2026-06-01",
+    deathCause: "肿瘤相关死亡",
+    deathPlace: "家中",
+    sourceType: "电话随访",
+    deathStatus: "已确认",
+    auditStatus: "正式",
+    rootCauseCode: "C34.9",
+    certificateSource: "家属反馈并核验死亡证明",
+    rollbackAllowed: true,
+    archived: false,
+    histories: [
+      { date: "2026-06-01", method: "电话随访", status: "死亡", doctor: "周敏", note: "家属反馈并补充死亡证明信息。" },
+      { date: "2025-12-01", method: "门诊随访", status: "存活", doctor: "刘医生", note: "患者门诊复诊。" }
+    ]
+  },
+  {
+    key: "3",
+    no: "JX-2026-000041",
+    name: "胡梅",
+    sex: "女",
+    age: 57,
+    idCard: "360102196901183626",
+    region: "南昌市东湖区",
+    org: "南昌大学一附院",
+    diagnosis: "C18.7 乙状结肠癌",
+    diagnosisDate: "2026-05-30",
+    lastContactDate: "2026-06-03",
+    deathDate: "2026-06-03",
+    deathCause: "心脑血管疾病",
+    deathPlace: "医院",
+    sourceType: "医院上报",
+    deathStatus: "已上报",
+    auditStatus: "已归档",
+    rootCauseCode: "I64",
+    certificateSource: "医院死亡医学证明",
+    rollbackAllowed: false,
+    archived: true,
+    histories: [
+      { date: "2026-06-03", method: "医院上报", status: "死亡", doctor: "陈医生", note: "已归档并上报，需走更正流程。" }
+    ]
+  }
+];
+
 const duplicateRows = [
   { key: "1", group: "DUP-202606-001", cards: "HN-2026-000183 / HN-2025-009812", basis: "身份证号 + 姓名 + 出生日期", judge: "疑似重复", risk: "高" },
   { key: "2", group: "DUP-202606-002", cards: "HN-2026-000185 / HN-2024-006381", basis: "姓名 + 联系电话 + 常住地址", judge: "疑似多原发", risk: "中" }
@@ -467,8 +550,12 @@ function statusTag(value) {
     已还原: "success",
     待物理删除: "warning",
     已完成: "success",
+    已确认: "success",
+    已上报: "success",
+    已归档: "default",
     已生成: "processing",
     待生成: "warning",
+    待补全: "warning",
     已排除: "default",
     逾期: "error",
     待县区审核: "warning",
@@ -665,6 +752,9 @@ function FeaturePage({ feature, role, openBusinessModal, showDetail }) {
   }
   if (feature?.id === "followup_03") {
     return <FollowupPlanManagement role={role} />;
+  }
+  if (feature?.id === "followup_04") {
+    return <DeathInfoManagement role={role} />;
   }
 
   const moduleId = feature?.module?.id;
@@ -2568,6 +2658,265 @@ function FollowupPlanManagement({ role }) {
 
       <Modal title="取消随访计划" open={Boolean(cancelRow)} onCancel={() => setCancelRow(null)} onOk={confirmCancel} okText="确认取消" cancelText="取消" okButtonProps={{ danger: true }}>
         <Alert type="warning" showIcon message="取消后不再生成常规随访任务" description={`登记编号 ${cancelRow?.no || ""} 的计划将标记为已取消。死亡、作废或归档记录应使用自动排除规则。`} />
+      </Modal>
+    </div>
+  );
+}
+
+function DeathInfoManagement({ role }) {
+  const [form] = Form.useForm();
+  const [completeForm] = Form.useForm();
+  const [rollbackForm] = Form.useForm();
+  const [query, setQuery] = useState({});
+  const [detailRow, setDetailRow] = useState(null);
+  const [completeRow, setCompleteRow] = useState(null);
+  const [rollbackRow, setRollbackRow] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const filteredRows = deathInfoRows.filter((row) => {
+    if (query.region && query.region !== "全部区划" && !row.region.includes(query.region)) return false;
+    if (query.deathStatus && query.deathStatus !== "全部状态" && row.deathStatus !== query.deathStatus) return false;
+    if (query.sourceType && query.sourceType !== "全部来源" && row.sourceType !== query.sourceType) return false;
+    if (query.keyword) {
+      const field = query.searchType || "登记编号";
+      const value = query.keyword.trim();
+      if (field === "登记编号" && !row.no.includes(value)) return false;
+      if (field === "姓名" && !row.name.includes(value)) return false;
+      if (field === "身份证号" && !row.idCard.includes(value)) return false;
+    }
+    return true;
+  });
+
+  const summary = {
+    total: deathInfoRows.length,
+    pending: deathInfoRows.filter((row) => row.deathStatus === "待补全").length,
+    confirmed: deathInfoRows.filter((row) => row.deathStatus === "已确认").length,
+    backflow: deathInfoRows.filter((row) => row.sourceType === "死因回流").length,
+    rollback: deathInfoRows.filter((row) => row.rollbackAllowed).length,
+    today: 1
+  };
+
+  function openComplete(row) {
+    setCompleteRow(row);
+    completeForm.setFieldsValue({
+      deathDate: row.deathDate,
+      deathCause: row.deathCause,
+      deathPlace: row.deathPlace,
+      certificateSource: row.certificateSource,
+      rootCauseCode: row.rootCauseCode || row.diagnosis.slice(0, 5),
+      note: row.deathStatus === "待补全" ? "根据死因回流记录补全死亡信息" : "复核死亡信息"
+    });
+  }
+
+  function confirmComplete() {
+    completeForm
+      .validateFields()
+      .then(() => {
+        setCompleteRow(null);
+        message.success("死亡信息已补全，死亡状态和审核状态已同步更新");
+      })
+      .catch(() => message.error("保存失败：请补全死亡日期、死亡原因、死亡地点和证明来源"));
+  }
+
+  function openRollback(row) {
+    if (!row.rollbackAllowed || row.archived) {
+      message.warning("已归档或已上报记录不可直接回退，请走死亡信息更正流程。");
+      return;
+    }
+    setRollbackRow(row);
+    rollbackForm.setFieldsValue({ reason: "死亡信息误报，恢复上一条存活随访状态", restoreStatus: "存活" });
+  }
+
+  function confirmRollback() {
+    rollbackForm
+      .validateFields()
+      .then(() => {
+        setRollbackRow(null);
+        message.success("死亡信息已回退，记录将回到随访信息管理并恢复上一条接触状态");
+      })
+      .catch(() => message.error("回退失败：请填写回退原因"));
+  }
+
+  const columns = [
+    {
+      title: "登记编号",
+      dataIndex: "no",
+      width: 160,
+      fixed: "left",
+      render: (value, row) => (
+        <Button type="link" className="link-cell" onClick={() => setDetailRow(row)}>
+          {value}
+        </Button>
+      )
+    },
+    { title: "姓名", dataIndex: "name", width: 90 },
+    { title: "身份证号", dataIndex: "idCard", width: 190 },
+    { title: "行政区划", dataIndex: "region", width: 150 },
+    { title: "诊断信息", dataIndex: "diagnosis", width: 210 },
+    { title: "最后接触日期", dataIndex: "lastContactDate", width: 125 },
+    { title: "死亡日期", dataIndex: "deathDate", width: 115 },
+    { title: "死亡原因", dataIndex: "deathCause", width: 135 },
+    { title: "死亡地点", dataIndex: "deathPlace", width: 100 },
+    { title: "来源类型", dataIndex: "sourceType", width: 115 },
+    { title: "死亡信息状态", dataIndex: "deathStatus", width: 125, render: statusTag },
+    { title: "审核状态", dataIndex: "auditStatus", width: 115, render: statusTag },
+    {
+      title: "操作",
+      width: 210,
+      fixed: "right",
+      render: (_, row) => (
+        <Space size={4}>
+          <Button type="link" onClick={() => setDetailRow(row)}>详情</Button>
+          <Button type="link" onClick={() => openComplete(row)}>死亡补全</Button>
+          <Button type="link" danger disabled={!row.rollbackAllowed || row.archived} onClick={() => openRollback(row)}>死亡回退</Button>
+        </Space>
+      )
+    }
+  ];
+
+  return (
+    <div className="death-info-page">
+      <Card className="search-card maintenance-search">
+        <Form form={form} layout="inline" initialValues={{ region: "全部区划", deathStatus: "全部状态", sourceType: "全部来源", dateType: "死亡日期", searchType: "登记编号" }}>
+          <Form.Item name="region">
+            <Select className="filter-select" options={[{ value: "全部区划" }, { value: "郑州市" }, { value: "南昌市" }, { value: "许昌市" }]} />
+          </Form.Item>
+          <Form.Item name="deathStatus">
+            <Select className="filter-select" options={[{ value: "全部状态" }, { value: "待补全" }, { value: "已确认" }, { value: "已上报" }]} />
+          </Form.Item>
+          <Form.Item name="sourceType">
+            <Select className="filter-select" options={[{ value: "全部来源" }, { value: "死因回流" }, { value: "电话随访" }, { value: "医院上报" }]} />
+          </Form.Item>
+          <Form.Item name="dateType">
+            <Select className="filter-select" options={[{ value: "死亡日期" }, { value: "最后接触日期" }, { value: "确诊日期" }]} />
+          </Form.Item>
+          <Form.Item name="dateRange">
+            <Input className="date-range-input" placeholder="2026-06-01 至 2026-06-30" />
+          </Form.Item>
+          <Form.Item name="searchType">
+            <Select className="filter-select small" options={[{ value: "登记编号" }, { value: "姓名" }, { value: "身份证号" }]} />
+          </Form.Item>
+          <Form.Item name="keyword">
+            <Input prefix={<SearchOutlined />} className="keyword-input" placeholder="请输入检索内容" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" icon={<SearchOutlined />} onClick={() => { setQuery(form.getFieldsValue()); message.success("死亡信息查询完成"); }}>
+                查询
+              </Button>
+              <Button onClick={() => { form.resetFields(); setQuery({}); }}>重置</Button>
+              <Button onClick={() => setExportOpen(true)}>导出 Excel</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Row gutter={16} className="plan-stat-row">
+        <Col span={4}><Card><Statistic title="死亡记录数" value={summary.total} suffix="条" /></Card></Col>
+        <Col span={4}><Card><Statistic title="待补全" value={summary.pending} suffix="条" valueStyle={{ color: "#d97706" }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="已确认" value={summary.confirmed} suffix="条" valueStyle={{ color: "#16a34a" }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="死因回流" value={summary.backflow} suffix="条" valueStyle={{ color: "#2563eb" }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="可回退" value={summary.rollback} suffix="条" /></Card></Col>
+        <Col span={4}><Card><Statistic title="今日更新" value={summary.today} suffix="条" /></Card></Col>
+      </Row>
+
+      <Card className="table-card">
+        <Alert
+          className="table-alert"
+          type="warning"
+          showIcon
+          message="死亡回退为高风险操作"
+          description="仅最新且唯一有效的死亡随访记录允许回退；已归档或已上报国家平台记录不可直接回退，需走死亡信息更正流程。"
+        />
+        <Table columns={columns} dataSource={filteredRows} pagination={false} scroll={{ x: 1750 }} />
+        <Flex justify="space-between" align="center" className="pagination-row">
+          <Text type="secondary">共 {filteredRows.length} 条死亡记录，第 1 / 1 页</Text>
+          <Pagination current={1} total={filteredRows.length} pageSize={10} />
+        </Flex>
+      </Card>
+
+      <Drawer title="死亡信息详情" open={Boolean(detailRow)} onClose={() => setDetailRow(null)} width={840}>
+        {detailRow && (
+          <>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="登记编号">{detailRow.no}</Descriptions.Item>
+              <Descriptions.Item label="姓名">{detailRow.name}</Descriptions.Item>
+              <Descriptions.Item label="身份证号" span={2}>{detailRow.idCard}</Descriptions.Item>
+              <Descriptions.Item label="行政区划">{detailRow.region}</Descriptions.Item>
+              <Descriptions.Item label="报告单位">{detailRow.org}</Descriptions.Item>
+              <Descriptions.Item label="诊断信息" span={2}>{detailRow.diagnosis}</Descriptions.Item>
+              <Descriptions.Item label="确诊日期">{detailRow.diagnosisDate}</Descriptions.Item>
+              <Descriptions.Item label="最后接触日期">{detailRow.lastContactDate}</Descriptions.Item>
+              <Descriptions.Item label="死亡日期">{detailRow.deathDate}</Descriptions.Item>
+              <Descriptions.Item label="死亡原因">{detailRow.deathCause}</Descriptions.Item>
+              <Descriptions.Item label="死亡地点">{detailRow.deathPlace}</Descriptions.Item>
+              <Descriptions.Item label="来源类型">{detailRow.sourceType}</Descriptions.Item>
+              <Descriptions.Item label="根本死因编码">{detailRow.rootCauseCode || "待补全"}</Descriptions.Item>
+              <Descriptions.Item label="证明来源">{detailRow.certificateSource}</Descriptions.Item>
+              <Descriptions.Item label="死亡信息状态">{statusTag(detailRow.deathStatus)}</Descriptions.Item>
+              <Descriptions.Item label="审核状态">{statusTag(detailRow.auditStatus)}</Descriptions.Item>
+            </Descriptions>
+            <Card title="历史随访记录" size="small" className="history-card">
+              <Timeline
+                items={detailRow.histories.map((item) => ({
+                  color: item.status === "死亡" ? "red" : "green",
+                  children: (
+                    <div>
+                      <Text strong>{item.date} / {item.method} / {item.status}</Text>
+                      <div className="timeline-note">{item.doctor}：{item.note}</div>
+                    </div>
+                  )
+                }))}
+              />
+            </Card>
+            <div className="drawer-action-row">
+              <Space>
+                <Button type="primary" onClick={() => openComplete(detailRow)}>死亡补全</Button>
+                <Button danger disabled={!detailRow.rollbackAllowed || detailRow.archived} onClick={() => openRollback(detailRow)}>死亡回退</Button>
+              </Space>
+            </div>
+          </>
+        )}
+      </Drawer>
+
+      <Modal title="死亡信息补全" open={Boolean(completeRow)} onCancel={() => setCompleteRow(null)} onOk={confirmComplete} okText="保存补全" cancelText="取消" width={820} destroyOnClose>
+        {completeRow && (
+          <>
+            <Alert type="info" showIcon message="补全死亡信息" description={`登记编号 ${completeRow.no}，来源：${completeRow.sourceType}。死亡日期、死亡原因、死亡地点和证明来源为必填。`} style={{ marginBottom: 16 }} />
+            <Form form={completeForm} layout="vertical">
+              <Row gutter={12}>
+                <Col span={6}><Form.Item name="deathDate" label="死亡日期" rules={[{ required: true, message: "请输入死亡日期" }]}><Input /></Form.Item></Col>
+                <Col span={6}><Form.Item name="deathCause" label="死亡原因" rules={[{ required: true, message: "请选择死亡原因" }]}><Select options={[{ value: "肿瘤相关死亡" }, { value: "心脑血管疾病" }, { value: "其他原因" }]} /></Form.Item></Col>
+                <Col span={6}><Form.Item name="deathPlace" label="死亡地点" rules={[{ required: true, message: "请选择死亡地点" }]}><Select options={[{ value: "医院" }, { value: "家中" }, { value: "养老机构" }, { value: "其他" }]} /></Form.Item></Col>
+                <Col span={6}><Form.Item name="rootCauseCode" label="根本死因编码" rules={[{ required: true, message: "请输入根本死因编码" }]}><Input placeholder="C34.9" /></Form.Item></Col>
+                <Col span={12}><Form.Item name="certificateSource" label="死亡证明来源" rules={[{ required: true, message: "请输入证明来源" }]}><Input /></Form.Item></Col>
+                <Col span={12}><Form.Item name="note" label="补全说明"><Input /></Form.Item></Col>
+              </Row>
+            </Form>
+          </>
+        )}
+      </Modal>
+
+      <Modal title="死亡回退确认" open={Boolean(rollbackRow)} onCancel={() => setRollbackRow(null)} onOk={confirmRollback} okText="确认回退" cancelText="取消" okButtonProps={{ danger: true }} width={720}>
+        {rollbackRow && (
+          <>
+            <Alert type="error" showIcon message="死亡回退会恢复上一条随访状态" description="正式系统应校验该死亡记录是否为最新且唯一有效死亡随访；回退后记录回到随访信息管理，并写入随访记录日志和系统操作日志。" style={{ marginBottom: 16 }} />
+            <Form form={rollbackForm} layout="vertical">
+              <Row gutter={12}>
+                <Col span={8}><Form.Item name="restoreStatus" label="回退后状态"><Select options={[{ value: "存活" }, { value: "失访" }]} /></Form.Item></Col>
+                <Col span={16}><Form.Item name="reason" label="回退原因" rules={[{ required: true, message: "请填写回退原因" }]}><Input /></Form.Item></Col>
+              </Row>
+            </Form>
+          </>
+        )}
+      </Modal>
+
+      <Modal title="导出死亡信息" open={exportOpen} onCancel={() => setExportOpen(false)} onOk={() => { setExportOpen(false); message.success("死亡信息导出任务已创建，并写入系统操作日志"); }} okText="确认导出" cancelText="取消">
+        <Descriptions bordered column={1} size="small">
+          <Descriptions.Item label="导出范围">当前筛选条件下 {filteredRows.length} 条死亡记录</Descriptions.Item>
+          <Descriptions.Item label="敏感字段">身份证号、证明来源等按当前角色权限脱敏</Descriptions.Item>
+          <Descriptions.Item label="审计记录">记录导出人、机构、时间、筛选条件和文件版本</Descriptions.Item>
+        </Descriptions>
       </Modal>
     </div>
   );
