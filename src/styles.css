@@ -95,10 +95,34 @@ body,
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 24px;
   height: 66px;
   padding: 0 28px;
   background: #fff;
   box-shadow: 0 1px 0 rgba(16, 24, 40, 0.04);
+}
+
+.app-header .ant-breadcrumb {
+  min-width: 0;
+  flex: 1;
+}
+
+.header-actions {
+  flex: none;
+  min-width: 260px;
+  justify-content: flex-end;
+}
+
+.notice-button {
+  width: 36px;
+  height: 36px;
+  color: #667085;
+  font-size: 20px;
+}
+
+.notice-button:hover {
+  color: #2364e8 !important;
+  background: #f2f6ff !important;
 }
 
 .header-icon {
@@ -106,10 +130,47 @@ body,
   font-size: 22px;
 }
 
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 172px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 8px;
+}
+
+.user-menu:hover {
+  background: #f7f9fc;
+}
+
 .user-avatar {
   background: #4c6fff;
   font-weight: 700;
   flex: none;
+}
+
+.user-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+
+.user-meta .ant-typography {
+  max-width: 132px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-meta .ant-typography:first-child {
+  color: #1f2937;
+}
+
+.user-meta .ant-typography:last-child {
+  font-size: 12px;
 }
 
 .app-content {

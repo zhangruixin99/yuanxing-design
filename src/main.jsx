@@ -348,17 +348,18 @@ function App() {
                 { title: current?.name || "首页概览" }
               ]}
             />
-            <Space size={18}>
-              <Badge dot>
-                <BellOutlined className="header-icon" />
+            <Space size={14} className="header-actions">
+              <Badge dot offset={[-2, 4]}>
+                <Button type="text" shape="circle" className="notice-button" icon={<BellOutlined />} />
               </Badge>
-              <Avatar size={44} className="user-avatar">
-                {roles[roleKey].name.slice(0, 1)}
-              </Avatar>
-              <div>
-                <Text strong>{roles[roleKey].name}</Text>
-                <br />
-                <Text type="secondary">{roles[roleKey].label}</Text>
+              <div className="user-menu">
+                <Avatar size={36} className="user-avatar">
+                  {roles[roleKey].name.slice(0, 1)}
+                </Avatar>
+                <div className="user-meta">
+                  <Text strong>{roles[roleKey].name}</Text>
+                  <Text type="secondary">{roles[roleKey].label}</Text>
+                </div>
               </div>
             </Space>
           </Header>
