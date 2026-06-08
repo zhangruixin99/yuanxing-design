@@ -258,7 +258,6 @@ const followupRows = [
     contactStatus: "存活",
     latestMethod: "电话随访",
     followupCount: 2,
-    nextFollowupDate: "2026-12-06",
     auditStatus: "已完成",
     followDoctor: "王医生",
     histories: [
@@ -281,7 +280,6 @@ const followupRows = [
     contactStatus: "失访",
     latestMethod: "基层协查",
     followupCount: 1,
-    nextFollowupDate: "2026-07-02",
     auditStatus: "待复核",
     followDoctor: "周敏",
     histories: [
@@ -303,7 +301,6 @@ const followupRows = [
     contactStatus: "死亡",
     latestMethod: "死因匹配",
     followupCount: 3,
-    nextFollowupDate: "-",
     auditStatus: "死亡待更新",
     followDoctor: "李文华",
     deathDate: "2026-05-30",
@@ -1725,7 +1722,6 @@ function FollowupInfoManagement({ role }) {
     { title: "最后接触状态", dataIndex: "contactStatus", width: 125, render: statusTag },
     { title: "最近随访方式", dataIndex: "latestMethod", width: 125 },
     { title: "随访次数", dataIndex: "followupCount", width: 90 },
-    { title: "下次随访日期", dataIndex: "nextFollowupDate", width: 125 },
     { title: "审核状态", dataIndex: "auditStatus", width: 120, render: statusTag },
     {
       title: "操作",
@@ -1767,7 +1763,7 @@ function FollowupInfoManagement({ role }) {
             <Select className="filter-select" options={[{ value: "全部方式" }, { value: "电话随访" }, { value: "门诊随访" }, { value: "基层协查" }, { value: "死因匹配" }]} />
           </Form.Item>
           <Form.Item name="dateType">
-            <Select className="filter-select" options={[{ value: "最后接触日期" }, { value: "下次随访日期" }, { value: "确诊日期" }]} />
+            <Select className="filter-select" options={[{ value: "最后接触日期" }, { value: "确诊日期" }]} />
           </Form.Item>
           <Form.Item name="dateRange">
             <Input className="date-range-input" placeholder="2026-06-01 至 2026-06-30" />
@@ -1820,7 +1816,6 @@ function FollowupInfoManagement({ role }) {
               <Descriptions.Item label="最后接触日期">{detailRow.lastContactDate}</Descriptions.Item>
               <Descriptions.Item label="最后接触状态">{statusTag(detailRow.contactStatus)}</Descriptions.Item>
               <Descriptions.Item label="随访次数">{detailRow.followupCount}</Descriptions.Item>
-              <Descriptions.Item label="下次随访日期">{detailRow.nextFollowupDate}</Descriptions.Item>
               <Descriptions.Item label="审核状态">{statusTag(detailRow.auditStatus)}</Descriptions.Item>
             </Descriptions>
             <Card title="历史随访记录" size="small" className="history-card">
