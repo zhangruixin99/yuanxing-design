@@ -26,6 +26,7 @@ import {
   Statistic,
   Table,
   Tag,
+  Timeline,
   Typography,
   message,
   theme
@@ -241,6 +242,81 @@ const voidRows = [
   }
 ];
 
+const followupRows = [
+  {
+    key: "1",
+    no: "HN-2026-000183",
+    name: "张秀兰",
+    sex: "女",
+    age: 63,
+    idCard: "41010519630215482X",
+    region: "郑州市金水区",
+    org: "河南省人民医院",
+    diagnosis: "C50.9 乳腺恶性肿瘤",
+    diagnosisDate: "2026-06-01",
+    lastContactDate: "2026-06-06",
+    contactStatus: "存活",
+    latestMethod: "电话随访",
+    followupCount: 2,
+    nextFollowupDate: "2026-12-06",
+    auditStatus: "已完成",
+    followDoctor: "王医生",
+    histories: [
+      { date: "2026-06-06", method: "电话随访", status: "存活", doctor: "王医生", note: "患者术后恢复稳定，已在省人民医院复诊。" },
+      { date: "2026-03-08", method: "门诊随访", status: "存活", doctor: "刘医生", note: "完成首次随访，联系人电话有效。" }
+    ]
+  },
+  {
+    key: "2",
+    no: "HN-2026-000185",
+    name: "赵海",
+    sex: "男",
+    age: 45,
+    idCard: "411002198103094210",
+    region: "许昌市魏都区",
+    org: "许昌市人民医院",
+    diagnosis: "C22.0 肝细胞癌",
+    diagnosisDate: "2026-05-28",
+    lastContactDate: "2026-06-02",
+    contactStatus: "失访",
+    latestMethod: "基层协查",
+    followupCount: 1,
+    nextFollowupDate: "2026-07-02",
+    auditStatus: "待复核",
+    followDoctor: "周敏",
+    histories: [
+      { date: "2026-06-02", method: "基层协查", status: "失访", doctor: "周敏", note: "户籍地址可达，电话停机，需下次协查。" }
+    ]
+  },
+  {
+    key: "3",
+    no: "HN-2025-008432",
+    name: "陈国强",
+    sex: "男",
+    age: 68,
+    idCard: "410103195802073016",
+    region: "郑州市二七区",
+    org: "郑大一附院",
+    diagnosis: "C16.9 胃恶性肿瘤",
+    diagnosisDate: "2025-12-15",
+    lastContactDate: "2026-05-30",
+    contactStatus: "死亡",
+    latestMethod: "死因匹配",
+    followupCount: 3,
+    nextFollowupDate: "-",
+    auditStatus: "死亡待更新",
+    followDoctor: "李文华",
+    deathDate: "2026-05-30",
+    deathCause: "肿瘤相关死亡",
+    deathPlace: "医院",
+    histories: [
+      { date: "2026-05-30", method: "死因匹配", status: "死亡", doctor: "李文华", note: "死因系统回流，需在死亡信息管理中补全死亡信息。" },
+      { date: "2026-03-21", method: "电话随访", status: "存活", doctor: "王医生", note: "患者化疗中，家属反馈状态较差。" },
+      { date: "2025-12-22", method: "门诊随访", status: "存活", doctor: "刘医生", note: "登记后首次随访。" }
+    ]
+  }
+];
+
 const duplicateRows = [
   { key: "1", group: "DUP-202606-001", cards: "HN-2026-000183 / HN-2025-009812", basis: "身份证号 + 姓名 + 出生日期", judge: "疑似重复", risk: "高" },
   { key: "2", group: "DUP-202606-002", cards: "HN-2026-000185 / HN-2024-006381", basis: "姓名 + 联系电话 + 常住地址", judge: "疑似多原发", risk: "中" }
@@ -451,6 +527,9 @@ function FeaturePage({ feature, role, openBusinessModal, showDetail }) {
   }
   if (feature?.id === "cards_05") {
     return <VoidCardManagement role={role} />;
+  }
+  if (feature?.id === "followup_01") {
+    return <FollowupInfoManagement role={role} />;
   }
 
   const moduleId = feature?.module?.id;
@@ -1531,6 +1610,310 @@ function VoidCardManagement({ role }) {
 
       <Modal title="批量还原确认" open={batchRestoreOpen} onCancel={() => setBatchRestoreOpen(false)} onOk={confirmBatchRestore} okText="确认批量还原" cancelText="取消">
         <Alert type="info" showIcon message={`确认还原 ${selectedKeys.length} 张作废卡`} description="批量还原会逐条校验数据权限和原状态，失败记录保留在作废卡列表并生成处理日志。" />
+      </Modal>
+    </div>
+  );
+}
+
+function FollowupInfoManagement({ role }) {
+  const [form] = Form.useForm();
+  const [followForm] = Form.useForm();
+  const [query, setQuery] = useState({});
+  const [detailRow, setDetailRow] = useState(null);
+  const [followRow, setFollowRow] = useState(null);
+  const [followMode, setFollowMode] = useState("add");
+  const [deleteRow, setDeleteRow] = useState(null);
+  const contactStatus = Form.useWatch("contactStatus", followForm);
+
+  const filteredRows = followupRows.filter((row) => {
+    if (query.region && query.region !== "全部区划" && !row.region.includes(query.region)) return false;
+    if (query.contactStatus && query.contactStatus !== "全部状态" && row.contactStatus !== query.contactStatus) return false;
+    if (query.method && query.method !== "全部方式" && row.latestMethod !== query.method) return false;
+    if (query.keyword) {
+      const field = query.searchType || "登记编号";
+      const value = query.keyword.trim();
+      if (field === "登记编号" && !row.no.includes(value)) return false;
+      if (field === "姓名" && !row.name.includes(value)) return false;
+      if (field === "身份证号" && !row.idCard.includes(value)) return false;
+    }
+    return true;
+  });
+
+  function doSearch() {
+    setQuery(form.getFieldsValue());
+    message.success("随访信息查询完成");
+  }
+
+  function resetSearch() {
+    form.resetFields();
+    setQuery({});
+  }
+
+  function openFollow(row, mode) {
+    if (row.contactStatus === "死亡" && mode !== "add") {
+      message.warning("死亡状态记录请进入死亡信息管理处理，随访信息管理仅展示历史。");
+      return;
+    }
+    const latest = row.histories[0] || {};
+    setFollowRow(row);
+    setFollowMode(mode);
+    followForm.setFieldsValue(
+      mode === "edit"
+        ? {
+            followupDate: latest.date,
+            method: latest.method,
+            contactStatus: latest.status,
+            followDoctor: latest.doctor,
+            note: latest.note,
+            deathDate: row.deathDate,
+            deathCause: row.deathCause,
+            deathPlace: row.deathPlace
+          }
+        : {
+            followupDate: "2026-06-08",
+            method: "电话随访",
+            contactStatus: "存活",
+            followDoctor: role.name,
+            note: ""
+          }
+    );
+  }
+
+  function saveFollowup() {
+    followForm
+      .validateFields()
+      .then((values) => {
+        if (values.contactStatus === "死亡" && (!values.deathDate || !values.deathCause || !values.deathPlace)) {
+          message.error("死亡状态下需填写死亡日期、死亡原因和死亡地点");
+          return;
+        }
+        setFollowRow(null);
+        message.success(followMode === "edit" ? "最新随访记录已修改，并写入随访记录日志" : "随访记录已新增，最后接触状态已更新");
+      })
+      .catch(() => message.error("保存失败：请补全随访必填项"));
+  }
+
+  function confirmDeleteLatest() {
+    if ((deleteRow?.histories?.length || 0) <= 1) {
+      message.error("删除失败：至少需保留一条有效随访记录");
+      return;
+    }
+    message.success(`${deleteRow?.no} 最新随访记录已删除，患者状态回退到上一条随访`);
+    setDeleteRow(null);
+  }
+
+  const columns = [
+    {
+      title: "登记编号",
+      dataIndex: "no",
+      width: 160,
+      fixed: "left",
+      render: (value, row) => (
+        <Button type="link" className="link-cell" onClick={() => setDetailRow(row)}>
+          {value}
+        </Button>
+      )
+    },
+    { title: "姓名", dataIndex: "name", width: 90 },
+    { title: "性别", dataIndex: "sex", width: 70 },
+    { title: "年龄", dataIndex: "age", width: 70 },
+    { title: "身份证号", dataIndex: "idCard", width: 190 },
+    { title: "行政区划", dataIndex: "region", width: 150 },
+    { title: "报告单位", dataIndex: "org", width: 170 },
+    { title: "诊断信息", dataIndex: "diagnosis", width: 210 },
+    { title: "最后接触日期", dataIndex: "lastContactDate", width: 125 },
+    { title: "最后接触状态", dataIndex: "contactStatus", width: 125, render: statusTag },
+    { title: "最近随访方式", dataIndex: "latestMethod", width: 125 },
+    { title: "随访次数", dataIndex: "followupCount", width: 90 },
+    { title: "下次随访日期", dataIndex: "nextFollowupDate", width: 125 },
+    { title: "审核状态", dataIndex: "auditStatus", width: 120, render: statusTag },
+    {
+      title: "操作",
+      width: 245,
+      fixed: "right",
+      render: (_, row) => {
+        const isDeath = row.contactStatus === "死亡";
+        return (
+          <Space size={4}>
+            <Button type="link" onClick={() => setDetailRow(row)}>
+              详情
+            </Button>
+            <Button type="link" onClick={() => openFollow(row, "add")}>
+              添加随访
+            </Button>
+            <Button type="link" disabled={isDeath} onClick={() => openFollow(row, "edit")}>
+              修改最新
+            </Button>
+            <Button type="link" danger disabled={isDeath} onClick={() => setDeleteRow(row)}>
+              删除最新
+            </Button>
+          </Space>
+        );
+      }
+    }
+  ];
+
+  return (
+    <div className="followup-page">
+      <Card className="search-card maintenance-search">
+        <Form form={form} layout="inline" initialValues={{ region: "全部区划", contactStatus: "全部状态", method: "全部方式", dateType: "最后接触日期", searchType: "登记编号" }}>
+          <Form.Item name="region">
+            <Select className="filter-select" options={[{ value: "全部区划" }, { value: "郑州市" }, { value: "许昌市" }, { value: "洛阳市" }]} />
+          </Form.Item>
+          <Form.Item name="contactStatus">
+            <Select className="filter-select" options={[{ value: "全部状态" }, { value: "存活" }, { value: "失访" }, { value: "死亡" }]} />
+          </Form.Item>
+          <Form.Item name="method">
+            <Select className="filter-select" options={[{ value: "全部方式" }, { value: "电话随访" }, { value: "门诊随访" }, { value: "基层协查" }, { value: "死因匹配" }]} />
+          </Form.Item>
+          <Form.Item name="dateType">
+            <Select className="filter-select" options={[{ value: "最后接触日期" }, { value: "下次随访日期" }, { value: "确诊日期" }]} />
+          </Form.Item>
+          <Form.Item name="dateRange">
+            <Input className="date-range-input" placeholder="2026-06-01 至 2026-06-30" />
+          </Form.Item>
+          <Form.Item name="searchType">
+            <Select className="filter-select small" options={[{ value: "登记编号" }, { value: "姓名" }, { value: "身份证号" }]} />
+          </Form.Item>
+          <Form.Item name="keyword">
+            <Input prefix={<SearchOutlined />} className="keyword-input" placeholder="请输入检索内容" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" icon={<SearchOutlined />} onClick={doSearch}>
+                查询
+              </Button>
+              <Button onClick={resetSearch}>重置</Button>
+              <Button onClick={() => message.success("已进入批量随访上传流程，请在批量随访菜单继续处理")}>
+                批量随访
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Card className="table-card">
+        <Alert
+          className="table-alert"
+          type="info"
+          showIcon
+          message="随访记录按时间倒序展示"
+          description="仅最新随访记录允许修改或删除；死亡状态记录请进入死亡信息管理补录或回退。"
+        />
+        <Table columns={columns} dataSource={filteredRows} pagination={false} scroll={{ x: 1900 }} />
+        <Flex justify="space-between" align="center" className="pagination-row">
+          <Text type="secondary">共 {filteredRows.length} 条记录，第 1 / 1 页</Text>
+          <Pagination current={1} total={filteredRows.length} pageSize={10} />
+        </Flex>
+      </Card>
+
+      <Drawer title="随访信息详情" open={Boolean(detailRow)} onClose={() => setDetailRow(null)} width={820}>
+        {detailRow && (
+          <>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="登记编号">{detailRow.no}</Descriptions.Item>
+              <Descriptions.Item label="姓名">{detailRow.name}</Descriptions.Item>
+              <Descriptions.Item label="身份证号">{detailRow.idCard}</Descriptions.Item>
+              <Descriptions.Item label="行政区划">{detailRow.region}</Descriptions.Item>
+              <Descriptions.Item label="诊断信息" span={2}>{detailRow.diagnosis}</Descriptions.Item>
+              <Descriptions.Item label="确诊日期">{detailRow.diagnosisDate}</Descriptions.Item>
+              <Descriptions.Item label="最后接触日期">{detailRow.lastContactDate}</Descriptions.Item>
+              <Descriptions.Item label="最后接触状态">{statusTag(detailRow.contactStatus)}</Descriptions.Item>
+              <Descriptions.Item label="随访次数">{detailRow.followupCount}</Descriptions.Item>
+              <Descriptions.Item label="下次随访日期">{detailRow.nextFollowupDate}</Descriptions.Item>
+              <Descriptions.Item label="审核状态">{statusTag(detailRow.auditStatus)}</Descriptions.Item>
+            </Descriptions>
+            <Card title="历史随访记录" size="small" className="history-card">
+              <Timeline
+                items={detailRow.histories.map((item) => ({
+                  color: item.status === "死亡" ? "red" : item.status === "失访" ? "orange" : "green",
+                  children: (
+                    <div>
+                      <Text strong>{item.date} / {item.method} / {item.status}</Text>
+                      <div className="timeline-note">{item.doctor}：{item.note}</div>
+                    </div>
+                  )
+                }))}
+              />
+            </Card>
+          </>
+        )}
+      </Drawer>
+
+      <Modal
+        title={followMode === "edit" ? "修改最新随访" : "添加随访"}
+        open={Boolean(followRow)}
+        onCancel={() => setFollowRow(null)}
+        onOk={saveFollowup}
+        okText={followMode === "edit" ? "保存修改" : "保存随访"}
+        cancelText="取消"
+        width={780}
+        destroyOnClose
+      >
+        {followRow && (
+          <>
+            <Alert
+              type={followMode === "edit" ? "warning" : "info"}
+              showIcon
+              message={followMode === "edit" ? "仅允许修改最新一条随访记录" : "新增随访会更新患者最后接触状态"}
+              description={followMode === "edit" ? "历史随访不可修改；如需修正历史记录，应通过随访记录日志发起纠错。" : `当前患者 ${followRow.name}，登记编号 ${followRow.no}，保存后按时间倒序进入历史随访。`}
+              style={{ marginBottom: 16 }}
+            />
+            <Form form={followForm} layout="vertical">
+              <Row gutter={12}>
+                <Col span={6}>
+                  <Form.Item name="followupDate" label="随访日期" rules={[{ required: true, message: "请输入随访日期" }]}>
+                    <Input placeholder="2026-06-08" />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="method" label="随访方式" rules={[{ required: true, message: "请选择随访方式" }]}>
+                    <Select options={[{ value: "电话随访" }, { value: "门诊随访" }, { value: "基层协查" }, { value: "死因匹配" }]} />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="contactStatus" label="接触状态" rules={[{ required: true, message: "请选择接触状态" }]}>
+                    <Select options={[{ value: "存活" }, { value: "失访" }, { value: "死亡" }]} />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="followDoctor" label="随访医师" rules={[{ required: true, message: "请输入随访医师" }]}>
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="deathDate" label="死亡日期" rules={[{ required: contactStatus === "死亡", message: "死亡状态下必填" }]}>
+                    <Input disabled={contactStatus !== "死亡"} placeholder="2026-06-08" />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="deathCause" label="死亡原因" rules={[{ required: contactStatus === "死亡", message: "死亡状态下必填" }]}>
+                    <Select disabled={contactStatus !== "死亡"} options={[{ value: "肿瘤相关死亡" }, { value: "心脑血管疾病" }, { value: "其他原因" }]} />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="deathPlace" label="死亡地点" rules={[{ required: contactStatus === "死亡", message: "死亡状态下必填" }]}>
+                    <Select disabled={contactStatus !== "死亡"} options={[{ value: "医院" }, { value: "家中" }, { value: "养老机构" }, { value: "其他" }]} />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item name="note" label="联系人反馈 / 随访说明" rules={[{ required: true, message: "请填写随访说明" }]}>
+                    <Input.TextArea rows={3} placeholder="填写患者状态、联系人反馈、协查结果或死亡信息来源" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+          </>
+        )}
+      </Modal>
+
+      <Modal title="删除最新随访" open={Boolean(deleteRow)} onCancel={() => setDeleteRow(null)} onOk={confirmDeleteLatest} okText="确认删除" cancelText="取消" okButtonProps={{ danger: true }}>
+        <Alert
+          type="warning"
+          showIcon
+          message="仅允许删除最新一条随访记录"
+          description={`登记编号 ${deleteRow?.no || ""} 当前共有 ${deleteRow?.histories?.length || 0} 条随访记录。系统会校验至少保留一条有效随访记录，删除后患者最后接触状态回退到上一条记录。`}
+        />
       </Modal>
     </div>
   );

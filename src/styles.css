@@ -353,6 +353,20 @@ body,
   max-width: none;
 }
 
+.history-card {
+  margin-top: 16px;
+}
+
+.history-card .ant-card-body {
+  padding-bottom: 0;
+}
+
+.timeline-note {
+  margin-top: 4px;
+  color: #667085;
+  line-height: 1.6;
+}
+
 .app-header .ant-space {
   flex: none;
 }
