@@ -2548,6 +2548,14 @@ function FollowupPlanManagement({ role }) {
 
   return (
     <div className="followup-plan-page">
+      <Row gutter={16} className="plan-stat-row">
+        <Col span={5}><Card><Statistic title="应随访人数" value={planSummary.shouldFollow} suffix="人" /></Card></Col>
+        <Col span={5}><Card><Statistic title="已生成任务" value={planSummary.generated} suffix="条" valueStyle={{ color: "#2563eb" }} /></Card></Col>
+        <Col span={5}><Card><Statistic title="逾期任务" value={planSummary.overdue} suffix="条" valueStyle={{ color: "#dc2626" }} /></Card></Col>
+        <Col span={5}><Card><Statistic title="死亡/作废排除" value={planSummary.excluded} suffix="条" /></Card></Col>
+        <Col span={4}><Card><Statistic title="今日待随访" value={planSummary.today} suffix="条" valueStyle={{ color: "#16a34a" }} /></Card></Col>
+      </Row>
+
       <Card className="search-card maintenance-search">
         <Form form={form} layout="inline" initialValues={{ region: "全部区划", taskStatus: "全部状态", patientStatus: "全部患者", cancerType: "全部癌种", dateType: "计划随访日期", searchType: "登记编号" }}>
           <Form.Item name="region">
@@ -2585,14 +2593,6 @@ function FollowupPlanManagement({ role }) {
           </Form.Item>
         </Form>
       </Card>
-
-      <Row gutter={16} className="plan-stat-row">
-        <Col span={5}><Card><Statistic title="应随访人数" value={planSummary.shouldFollow} suffix="人" /></Card></Col>
-        <Col span={5}><Card><Statistic title="已生成任务" value={planSummary.generated} suffix="条" valueStyle={{ color: "#2563eb" }} /></Card></Col>
-        <Col span={5}><Card><Statistic title="逾期任务" value={planSummary.overdue} suffix="条" valueStyle={{ color: "#dc2626" }} /></Card></Col>
-        <Col span={5}><Card><Statistic title="死亡/作废排除" value={planSummary.excluded} suffix="条" /></Card></Col>
-        <Col span={4}><Card><Statistic title="今日待随访" value={planSummary.today} suffix="条" valueStyle={{ color: "#16a34a" }} /></Card></Col>
-      </Row>
 
       <Card className="table-card">
         <Alert
@@ -2776,6 +2776,15 @@ function DeathInfoManagement({ role }) {
 
   return (
     <div className="death-info-page">
+      <Row gutter={16} className="plan-stat-row">
+        <Col span={4}><Card><Statistic title="死亡记录数" value={summary.total} suffix="条" /></Card></Col>
+        <Col span={4}><Card><Statistic title="待补全" value={summary.pending} suffix="条" valueStyle={{ color: "#d97706" }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="已确认" value={summary.confirmed} suffix="条" valueStyle={{ color: "#16a34a" }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="死因回流" value={summary.backflow} suffix="条" valueStyle={{ color: "#2563eb" }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="可回退" value={summary.rollback} suffix="条" /></Card></Col>
+        <Col span={4}><Card><Statistic title="今日更新" value={summary.today} suffix="条" /></Card></Col>
+      </Row>
+
       <Card className="search-card maintenance-search">
         <Form form={form} layout="inline" initialValues={{ region: "全部区划", deathStatus: "全部状态", sourceType: "全部来源", dateType: "死亡日期", searchType: "登记编号" }}>
           <Form.Item name="region">
@@ -2810,15 +2819,6 @@ function DeathInfoManagement({ role }) {
           </Form.Item>
         </Form>
       </Card>
-
-      <Row gutter={16} className="plan-stat-row">
-        <Col span={4}><Card><Statistic title="死亡记录数" value={summary.total} suffix="条" /></Card></Col>
-        <Col span={4}><Card><Statistic title="待补全" value={summary.pending} suffix="条" valueStyle={{ color: "#d97706" }} /></Card></Col>
-        <Col span={4}><Card><Statistic title="已确认" value={summary.confirmed} suffix="条" valueStyle={{ color: "#16a34a" }} /></Card></Col>
-        <Col span={4}><Card><Statistic title="死因回流" value={summary.backflow} suffix="条" valueStyle={{ color: "#2563eb" }} /></Card></Col>
-        <Col span={4}><Card><Statistic title="可回退" value={summary.rollback} suffix="条" /></Card></Col>
-        <Col span={4}><Card><Statistic title="今日更新" value={summary.today} suffix="条" /></Card></Col>
-      </Row>
 
       <Card className="table-card">
         <Alert
