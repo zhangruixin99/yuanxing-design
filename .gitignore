@@ -1,5 +1,6 @@
 # Office temporary files
 .~*
+.DS_Store
 
 # Frontend dependencies and local caches
 node_modules/
