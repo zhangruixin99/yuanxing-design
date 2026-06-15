@@ -5,6 +5,7 @@ const distDir = path.resolve(__dirname, "../dist");
 const indexPath = path.join(distDir, "index.html");
 
 let html = fs.readFileSync(indexPath, "utf8");
+let inlineScript = "";
 
 html = html.replace(
   /<link rel="stylesheet" crossorigin href="([^"]+)">/,
@@ -20,8 +21,11 @@ html = html.replace(
   (_match, src) => {
     const jsPath = path.join(distDir, src.replace(/^\.\//, ""));
     const js = fs.readFileSync(jsPath, "utf8");
-    return `<script>\n${js}\n</script>`;
+    inlineScript = `<script>\n${js}\n</script>`;
+    return "";
   }
 );
+
+html = html.replace("</body>", `${inlineScript}\n  </body>`);
 
 fs.writeFileSync(indexPath, html, "utf8");
