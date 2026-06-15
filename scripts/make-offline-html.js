@@ -26,6 +26,6 @@ html = html.replace(
   }
 );
 
-html = html.replace("</body>", `${inlineScript}\n  </body>`);
+html = html.replace("</body>", () => `${inlineScript}\n  </body>`);
 
 fs.writeFileSync(indexPath, html, "utf8");
